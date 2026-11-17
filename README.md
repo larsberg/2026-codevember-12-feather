@@ -204,6 +204,13 @@ retained. No new overlay, panel, or subject controls were added. New persisted
 `mesh` and `pipeline` settings use the existing setup schema and player bridge.
 `window.__featherSketch` exposes the same inherited change/setup/save/load APIs.
 
+Mirror textures follow the canvas drawing-buffer size at 75% resolution on each
+axis, preserving the camera's aspect ratio and the renderer's capped pixel ratio.
+The longest texture edge is capped at 2560 pixels (or the GPU's lower limit).
+Targets resize before reflection rendering, including after window resizing,
+recording-size changes and bird regeneration. Unchanged frames reuse the same
+allocation; resized targets release the old GPU resources.
+
 Version 2 supplies the missing CSG settings and migrates only the retired default
 seed (1207 → 732234), gravity (9.8 → 35.1), and skin normal mode. Custom seeds,
 gravity, material colors and properties, mute, palettes and camera edits survive.

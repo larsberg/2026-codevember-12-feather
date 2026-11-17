@@ -11,6 +11,16 @@ export const MIRROR = { centerY: 12, z: -12, halfWidth: 4, halfHeight: 9, footHe
 export const STAGE_SPOT_TARGET = new Vector3(0, 2, 0);
 const up = new Vector3(0, 1, 0);
 
+function resizeMirrorTarget(target, drawingBuffer, maxTextureSize) {
+  // Reflector renders the camera's whole viewport, not a portrait-shaped crop
+  // of the glass. Keep its aspect and use 75% of the actual canvas resolution.
+  const scale = Math.min(.75, Math.min(2560, maxTextureSize) / Math.max(drawingBuffer.x, drawingBuffer.y, 1));
+  const width = Math.max(1, Math.round(drawingBuffer.x * scale));
+  const height = Math.max(1, Math.round(drawingBuffer.y * scale));
+  // setSize releases the previous GPU allocation. Do that only on a size change.
+  if (target.width !== width || target.height !== height) target.setSize(width, height);
+}
+
 export function mirrorPanelPose(index, degrees) {
   const angle = degrees * Math.PI / 180;
   return { position: new Vector3(index * (4 + 4 * Math.cos(angle)), MIRROR.centerY, MIRROR.z + Math.abs(index) * 4 * Math.sin(angle)),
@@ -78,7 +88,7 @@ export function createDressingRoom(materials) {
     const panel = new Group(); panel.name = `Raised mirror panel ${index + 2}`;
     panel.userData.index = index; group.add(panel); panels.push(panel);
     const mirror = new Reflector(new PlaneGeometry(7.8, 18), { color: 0xc4d0d0,
-      textureWidth: 768, textureHeight: 1024, clipBias: .003, multisample: 0 });
+      textureWidth: 1, textureHeight: 1, clipBias: .003, multisample: 0 });
     mirror.name = 'Folding mirror reflection'; panel.add(mirror); mirrors.push(mirror);
     const rail = (x, y, w, h, depth = .34) => solid(panel, new BoxGeometry(w, h, depth), materials.pistons, 'Gilt mirror moulding', new Vector3(x, y, .015));
     rail(-4, 0, .3, 18.35); rail(4, 0, .3, 18.35);
@@ -134,10 +144,13 @@ export function createDressingRoom(materials) {
 
   // Preserve planar reflections without recursive mirror renders.
   let reflecting = false;
+  const drawingBuffer = new Vector2();
   for (const mirror of mirrors) {
     const draw = mirror.onBeforeRender;
     mirror.onBeforeRender = function (...args) {
       if (reflecting) return;
+      const renderer = args[0];
+      resizeMirrorTarget(mirror.getRenderTarget(), renderer.getDrawingBufferSize(drawingBuffer), renderer.capabilities.maxTextureSize);
       reflecting = true; const visible = mirrors.map(m => m.visible); mirrors.forEach(m => m.visible = false);
       try { draw.apply(this, args); } finally { mirrors.forEach((m, i) => m.visible = visible[i]); reflecting = false; }
     };
