@@ -300,8 +300,13 @@ A live Strudel arrival at generation 24 recovered from the known folded
 candidate in two attempts without stopping playback or altering the saved
 mesh pipeline.
 
-Publication metadata has no deployment URL yet. Capture a gallery thumbnail
-from the approved scene before publishing; the release check guards those assets.
+The standalone release URL is https://larsberg.github.io/2026-codevember-12-feather/.
+Publication metadata follows Rust: canonical and social-card URLs, a real
+1600 × 900 scene thumbnail, gallery catalogue entry, and the sketch-player embed
+contract. GitHub Pages uses the Actions workflow on `main`; `npm run deploy`
+tests, builds, checks the release, and pushes source for that workflow.
+Release preparation also includes a 30-second MP4 using the saved scene and audio
+settings, with the startup frames removed, under `../recordings/`.
 
 The plume families and automatic arrivals were checked in the existing port-1235
 tab. Temporary inspection settings were restored; the saved file was untouched.
