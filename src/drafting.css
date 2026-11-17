@@ -1,0 +1,12 @@
+:root,html,body,#sketch-root,.sketch,.sketch>.scene-canvas { background:#f2eee3; }
+.control-panel { background:#f4efe4f5; border-left:1px solid #b5b0a1; backdrop-filter:blur(12px); }
+.control-panel,.drawer-toggle { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; }
+.control-panel button { background:#eee8da; border-color:#b5b0a1; }
+.control-tabs { flex-wrap:wrap; }
+.control-tabs button { flex:1 0 23%; font-size:10px; }
+.control-tabs button[aria-selected="true"] { color:#8a641e; border-bottom-color:#a17a35; }
+.control-panel input { accent-color:#9c7733; }
+.drawer-toggle { background:#f4efe4d9; border:1px solid #aeae9e; border-radius:0; }
+.camera-hint,.setup-status { color:#68726c; }
+.drawing-view-actions { display:flex; gap:8px; margin:14px 0; }
+.drawing-view-actions button { flex:1; }

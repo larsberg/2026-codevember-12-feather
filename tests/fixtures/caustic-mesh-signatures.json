@@ -1,0 +1,23 @@
+{
+  "source": "10-caustic/src/herd/meshes.json; October 29 pipeline; centered, longest extent 7.2; coordinates quantized to 1e-8",
+  "cases": [
+    {
+      "seed": 732234,
+      "vertices": 384,
+      "polygons": 192,
+      "sha256": "bf9afcc90a4e0e7753de6bbe1ccd3437119527b87d61f9e1d81da054326b5b4c"
+    },
+    {
+      "seed": 836963,
+      "vertices": 360,
+      "polygons": 182,
+      "sha256": "885957a1045dc2be3a8c9ab261d84ac92b6c1cb640686feeb6e210959d1d1b0a"
+    },
+    {
+      "seed": 941692,
+      "vertices": 480,
+      "polygons": 242,
+      "sha256": "9c323c812b436618b61630bd6800a931137af7f68cb1dca3923edb782dce9aad"
+    }
+  ]
+}
