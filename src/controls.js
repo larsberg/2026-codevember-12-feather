@@ -37,7 +37,7 @@ export function createControls({settings,change,save,reload,resetView,exportDraw
         <section id="panel-materials" role="tabpanel" aria-labelledby="tab-materials" hidden>${materialControlsMarkup()}</section>
         <section id="panel-lighting" role="tabpanel" aria-labelledby="tab-lighting" hidden><p class="control-heading">Studio</p>${group('studio')}${lightingControlsMarkup()}<details class="material-group"><summary>Bloom</summary>${group('bloom')}</details></section>
         <section id="panel-camera" role="tabpanel" aria-labelledby="tab-camera" hidden><div class="camera-controls">${group('camera')}</div><button class="reset-camera">Reset view</button><details class="material-group"><summary>Tilt blur</summary>${group('focus')}</details></section>
-        <section id="panel-info" role="tabpanel" aria-labelledby="tab-info" hidden><p class="camera-hint">Left-drag to orbit. Right-drag to pan. Scroll to zoom. One finger orbits; two fingers pan and zoom.</p><p class="camera-hint">H controls · M sound · Space pause</p></section>
+        <section id="panel-info" role="tabpanel" aria-labelledby="tab-info" hidden><p class="camera-hint">Click or tap for a new bird and a fresh timer. Left-drag to orbit. Right-drag to pan. Scroll to zoom. One finger orbits; two fingers pan and zoom.</p><p class="camera-hint">Space new bird · P pause · H controls · M sound</p></section>
       </fieldset></div>
     </aside>`);
   const query=s=>shell.querySelector(s),drawer=query('.control-panel'),toggle=query('.drawer-toggle');
@@ -68,7 +68,7 @@ export function createControls({settings,change,save,reload,resetView,exportDraw
     if(e.code==='KeyH'&&!e.repeat){ui=!ui;toggle.hidden=!ui;toggle.disabled=!ui;drawer.inert=!ui;shell.classList.toggle('controls-visible',ui);if(ui)open(true);else{drawer.hidden=true;toggle.setAttribute('aria-expanded','false');}e.preventDefault();}
     if(e.key==='Escape'&&!drawer.hidden)open(false);
     if(e.code==='KeyM'&&!e.repeat)action(toggleSound)();
-    if(e.code==='Space'&&!e.repeat){e.preventDefault();togglePlaying();}
+    if(e.code==='KeyP'&&!e.repeat){e.preventDefault();togglePlaying();}
   });
   const synthControls=bindSynthControls(shell,{getVoices:()=>current.audio.voices,change:voices=>change('audio','voices',voices)});
   const workshop=bindPaletteWorkshop(shell,{getLibrary:()=>current.paletteLibrary,getPalettes:()=>libraryPalettes(current.paletteLibrary),getCurrentId:()=>current.paletteId,preview:selectPalette,change:changeLibrary});

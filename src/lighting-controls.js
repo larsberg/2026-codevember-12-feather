@@ -5,8 +5,8 @@ const controlGroups = lightingGroups.map(group => group.key === 'environment'
   : { ...group, label: group.key === 'directional' ? 'Studio key light' : group.key === 'hemisphere' ? 'Soft fill' : group.label });
 
 export function lightingControlsMarkup() {
-  return `<p class="camera-hint">Warm ivory paper, a broad key light and soft fill. Lighting follows the moving frame.</p>` + controlGroups.map(({ key, label, fields }) => `
-    <details class="material-group" ${key === 'directional' ? 'open' : ''}>
+  return `<p class="camera-hint">The stage spotlight lights the creature, floor and curtains. Each light's shadow controls affect that light only when it is enabled.</p>` + controlGroups.map(({ key, label, fields }) => `
+    <details class="material-group" ${key === 'spotlight' ? 'open' : ''}>
       <summary>${label}</summary>
       ${key === 'environment' ? '<p class="camera-hint">Neutral studio softboxes shape the reflections. Adjust their strength, rotation and blur.</p>' : ''}
       ${fields.map(([name, title, initial, min, max, step]) => {

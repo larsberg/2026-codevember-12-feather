@@ -2,7 +2,7 @@ import { studioColorFields, migrateStudioColors } from './studio-palettes.js';
 
 // Shared by the drawer and setup API so ranges and saved values agree.
 export const lightingGroups = [
-  { key: "spotlight", label: "Following spotlight", fields: [
+  { key: "spotlight", label: "Stage spotlight", fields: [
     ["enabled", "Enabled", true], ["color", "Color", "#ffffff"],
     ["intensity", "Intensity", 180000, 0, 300000, 10],
     ["offsetX", "Offset X", -30, -200, 200, 0.1],

@@ -10,8 +10,10 @@ there are no added HTML or canvas annotations.
 
 Run `npm run dev` in the visible VS Code terminal. The inherited Vite configuration
 prefers **http://127.0.0.1:1234/**; the user's current server uses port 1235. Reuse the existing shared
-VS Code browser tab. `H` reveals the inherited controls drawer, `Space` pauses,
-and `M` toggles Strudel audio. Left-drag orbits, right-drag pans, and scroll zooms.
+VS Code browser tab. `Space` or a click/tap on the scene generates a new bird and
+restarts the full generation timer. `P` pauses, `H` reveals the inherited controls
+drawer, and `M` toggles Strudel audio. Left-drag orbits, right-drag pans, and scroll zooms.
+Dragging, pinching, typing and activating controls do not generate birds.
 The drawer is hidden by default. No new subject sliders have been added.
 
 ## Inherited studio inventory
@@ -231,7 +233,7 @@ URL-scoped device save behavior. Sketch identity is `12-feather` throughout.
 
 ## Verification
 
-`npm run check` runs the production build and thirty tests covering:
+`npm run check` runs the production build and thirty-two tests covering:
 
 - a backward, convergent crest on the original upper surface and isolated
   collision categories;
@@ -259,6 +261,7 @@ URL-scoped device save behavior. Sketch identity is `12-feather` throughout.
 - version-one save migration and preservation of custom edits;
 - actual landing/foot contact timing, quiet inspection holds, bounded seeded
   foley textures, native Strudel voice limits, mute, disposal and audio migration;
+- Space/click regeneration, keyboard focus, drag/pinch exclusion and input cleanup;
 - complete GET/PUT setup round trips, ownership rejection and invalid-save safety.
 
 The existing VS Code preview at **http://127.0.0.1:1235/** was checked. The lowered

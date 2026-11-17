@@ -71,9 +71,9 @@
     "tempo": 120,
     "voices": [
       {
-        "level": 0.38,
+        "level": 0.88,
         "gate": 0.88,
-        "attack": 0.02,
+        "attack": 0.003,
         "decay": 0.15,
         "sustain": 0.8,
         "release": 0.06,
@@ -169,13 +169,13 @@
         }
       },
       {
-        "level": 0.18,
+        "level": 0.42,
         "gate": 0.88,
-        "attack": 0.04,
+        "attack": 0.006,
         "decay": 0.15,
         "sustain": 0.8,
         "release": 0.14,
-        "lowpass": 1200,
+        "lowpass": 7000,
         "resonance": 0.7,
         "highpass": 20,
         "fm": 1,
@@ -272,14 +272,14 @@
     "fps": false
   },
   "camera": {
-    "yaw": -32.1081393923,
-    "elevation": -1.138773255,
-    "distance": 29.7054173235,
+    "yaw": -26.6801957717,
+    "elevation": -0.6332372883,
+    "distance": 24.8243836169,
     "offsetX": 0,
     "offsetY": 0,
     "offsetZ": 0
   },
-  "version": 10,
+  "version": 11,
   "sketch": "12-feather",
   "cadence": {
     "bars": 6,
@@ -294,9 +294,9 @@
       "height": 59.9,
       "offsetZ": 16,
       "angle": 28,
-      "penumbra": 0.79,
+      "penumbra": 0.82,
       "castShadow": true,
-      "softness": 9,
+      "softness": 4.1,
       "shadowBias": -0.00004,
       "normalBias": 0.015
     },
@@ -308,9 +308,9 @@
       "height": 9,
       "offsetZ": 5,
       "castShadow": true,
-      "softness": 6,
-      "shadowBias": 0,
-      "normalBias": 0.002
+      "softness": 4.8,
+      "shadowBias": -0.00322,
+      "normalBias": 0
     },
     "fill": {
       "enabled": false,

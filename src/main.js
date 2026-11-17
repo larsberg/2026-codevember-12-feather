@@ -25,6 +25,7 @@ import { createSceneEffects } from './scene-effects.js';
 import { createAudio } from './score.js';
 import { loadFeatherSounds } from './feather-sounds.js';
 import { GenerationScore } from './generation-score.js';
+import { bindRegenerationInputs } from './regeneration-inputs.js';
 
 
 
@@ -178,6 +179,12 @@ if (setupLoadError) controls.status(setupLoadError, true);
 canvas.addEventListener('pointerdown', () => {
   if(settings.audio.enabled) void audio.unlock().catch(error=>controls.status(error.message,true));
 });
+const unbindRegeneration = bindRegenerationInputs(canvas, () => {
+  try {
+    controlActions.regenerate();
+    if(settings.audio.enabled)void audio.unlock().catch(error=>controls.status(error.message,true));
+  } catch(error) { controls.status(error.message,true); }
+});
 function resize() {
   renderer.setSize(innerWidth, innerHeight, false); effects.resize(innerWidth, innerHeight); camera.aspect = innerWidth / innerHeight;
   camera.fov = innerWidth < innerHeight ? 50 : 42;
@@ -218,6 +225,7 @@ document.addEventListener('visibilitychange', () => {
   audio.update(0, false);
 });
 window.addEventListener('pagehide', () => {
+  unbindRegeneration();
   renderer.setAnimationLoop(null); audio.dispose(); lightingControls.dispose(); effects.dispose(); surface.dispose(); simulation.dispose(); orbit.dispose();
   floor.geometry.dispose(); floor.material.dispose();
   for(const source of [light,fill,spotlight])source.shadow.dispose();
