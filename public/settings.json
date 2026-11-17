@@ -272,9 +272,9 @@
     "fps": false
   },
   "camera": {
-    "yaw": -26.6801957717,
-    "elevation": -0.6332372883,
-    "distance": 24.8243836169,
+    "yaw": -20.4224723877,
+    "elevation": -6.1441688472,
+    "distance": 20.5526094455,
     "offsetX": 0,
     "offsetY": 0,
     "offsetZ": 0
@@ -297,7 +297,7 @@
       "penumbra": 0.82,
       "castShadow": true,
       "softness": 4.1,
-      "shadowBias": -0.00004,
+      "shadowBias": 0.00001,
       "normalBias": 0.015
     },
     "directional": {
