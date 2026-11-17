@@ -4,13 +4,12 @@
     "count": 64,
     "length": 8,
     "width": 0.7,
-    "cycle": 36,
     "mirrorAngle": 24
   },
   "mesh": {
     "size": 7.2,
     "spread": 2.45,
-    "dropHeight": 32
+    "dropHeight": 5
   },
   "pipeline": {
     "enabled": true,
@@ -49,9 +48,9 @@
     "paper": false
   },
   "studio": {
-    "background": "#e9e2d4",
+    "background": "#000000",
     "exposure": 0.9,
-    "shadowOpacity": 0.24
+    "shadowOpacity": 0.32
   },
   "bloom": {
     "enabled": true,
@@ -273,29 +272,33 @@
     "fps": false
   },
   "camera": {
-    "yaw": 12,
-    "elevation": 14,
-    "distance": 51,
+    "yaw": 19.3805666232,
+    "elevation": 7.9772909532,
+    "distance": 18.1875411555,
     "offsetX": 0,
     "offsetY": 0,
     "offsetZ": 0
   },
-  "version": 3,
+  "version": 8,
   "sketch": "12-feather",
+  "cadence": {
+    "bars": 6,
+    "rhythm": "x"
+  },
   "lighting": {
     "spotlight": {
       "enabled": true,
-      "color": "#ffffff",
-      "intensity": 15000,
-      "offsetX": -14,
-      "height": 28,
-      "offsetZ": 22,
-      "angle": 32,
-      "penumbra": 0.65,
+      "color": "#fff1dc",
+      "intensity": 9000,
+      "offsetX": -10,
+      "height": 22,
+      "offsetZ": 16,
+      "angle": 27,
+      "penumbra": 0.8,
       "castShadow": true,
-      "softness": 1.2,
-      "shadowBias": -0.00001,
-      "normalBias": 0.002
+      "softness": 9,
+      "shadowBias": -0.00004,
+      "normalBias": 0.015
     },
     "directional": {
       "enabled": false,
@@ -312,7 +315,7 @@
     "fill": {
       "enabled": true,
       "color": "#c0e4ff",
-      "intensity": 1.2,
+      "intensity": 0.75,
       "offsetX": 12,
       "height": 8,
       "offsetZ": -10,
@@ -325,13 +328,13 @@
       "enabled": true,
       "skyColor": "#ffffff",
       "groundColor": "#acaaa6",
-      "intensity": 1.1,
+      "intensity": 0.65,
       "yaw": 0,
       "tilt": 0
     },
     "environment": {
       "enabled": true,
-      "intensity": 0.65,
+      "intensity": 0.5,
       "rotation": 0,
       "blur": 0.04,
       "backgroundColor": "#160e1b",
@@ -357,7 +360,7 @@
       "emissiveIntensity": 0,
       "envMapIntensity": 1,
       "opacity": 1,
-      "color": "#48565c",
+      "color": "#ffffff",
       "emissive": "#ffffff",
       "wireframe": false,
       "flatShading": true,

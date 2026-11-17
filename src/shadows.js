@@ -1,29 +1,27 @@
 import { Color, Mesh, PlaneGeometry, ShaderLib, ShaderMaterial, UniformsUtils, Vector3 } from 'three';
 
-export function createPaperFloor(background) {
+export function createStageFloor() {
   const shader = ShaderLib.shadow, uniforms = UniformsUtils.clone(shader.uniforms);
-  uniforms.color.value.set('#475363'); uniforms.opacity.value = .24;
-  uniforms.paperColor = { value: new Color(background) };
+  uniforms.opacity.value = .24;
   Object.assign(uniforms,{
     stageSpotPosition:{value:new Vector3()},stageSpotDirection:{value:new Vector3(0,-1,0)},
     stageSpotCone:{value:.8},stageSpotPenumbra:{value:.95},stageSpotPower:{value:1},stageSpotEnabled:{value:0},
     stageSpotColor:{value:new Color('#fff1dc')},
   });
-  // Composite paper and shadow in one opaque surface. Two nearly coplanar
-  // planes compete for depth at the shallow, distant camera views.
-  const material = new ShaderMaterial({ uniforms, lights: true, toneMapped: false,
+  // No ambient contribution: the unlit stage is black. Shadows multiply
+  // the spotlight pool, so they cannot brighten the floor beyond its cone.
+  const material = new ShaderMaterial({ name:'Spotlit black stage floor', uniforms, lights: true,
     polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 2,
     vertexShader: `varying vec3 stageWorldPosition;\n${shader.vertexShader}`.replace('#include <worldpos_vertex>',
       '#include <worldpos_vertex>\nstageWorldPosition=(modelMatrix*vec4(transformed,1.)).xyz;'),
-    fragmentShader: `uniform vec3 paperColor,stageSpotPosition,stageSpotDirection,stageSpotColor;
+    fragmentShader: `uniform vec3 stageSpotPosition,stageSpotDirection,stageSpotColor;
       uniform float stageSpotCone,stageSpotPenumbra,stageSpotPower,stageSpotEnabled;
       varying vec3 stageWorldPosition;\n${shader.fragmentShader}`.replace(
       'vec4( color, opacity * ( 1.0 - getShadowMask() ) )',
-      `vec4(mix(
-        paperColor*(1.-.3*stageSpotEnabled+.75*stageSpotEnabled*min(stageSpotPower,1.5)*
-          smoothstep(stageSpotCone,max(stageSpotCone+.00001,stageSpotPenumbra),
-            dot(normalize(stageWorldPosition-stageSpotPosition),stageSpotDirection)))*mix(vec3(1.),stageSpotColor,.16*stageSpotEnabled),
-        color,opacity*(1.-getShadowMask())),1.)`),
+      `vec4(stageSpotColor*.8*stageSpotEnabled*stageSpotPower*
+        smoothstep(stageSpotCone,max(stageSpotCone+.00001,stageSpotPenumbra),
+          dot(normalize(stageWorldPosition-stageSpotPosition),stageSpotDirection))*
+        (1.-opacity*(1.-getShadowMask())),1.)`),
   });
   const floor = new Mesh(new PlaneGeometry(20000, 20000), material);
   floor.rotation.x = -Math.PI / 2; floor.position.y = -.05; floor.receiveShadow = true;

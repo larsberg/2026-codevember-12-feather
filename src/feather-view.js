@@ -1,4 +1,4 @@
-import { Color, DoubleSide, Group, Mesh, MeshStandardMaterial, Quaternion } from 'three';
+import { Color, DoubleSide, Group, Mesh, MeshNormalMaterial, MeshStandardMaterial, Quaternion } from 'three';
 import { bindFeatherBarbs, createFeatherGeometry } from './feather-geometry.js';
 import { applyMaterialSettings } from './material-settings.js';
 import { createDressingRoom } from './dressing-room.js';
@@ -6,6 +6,9 @@ export function createFeatherView(scene,simulation) {
   const group=new Group(),creature=simulation.object;group.name='Feather / dressing room';group.add(creature);scene.add(group);
   const materials={panels:simulation.skinMaterial,struts:new MeshStandardMaterial({vertexColors:true,side:DoubleSide}),pistons:new MeshStandardMaterial(),joints:new MeshStandardMaterial()};
   bindFeatherBarbs(materials.struts);
+  // The AO depth/normal pass must see both sides of every opaque vane,
+  // otherwise the mirror frame behind it gets composited over the feather.
+  const featherNormals=new MeshNormalMaterial({side:DoubleSide});featherNormals.allowOverride=false;
   const body=simulation.surface.mesh;body.name='Caustic CSG creature / five fitted hulls';
   let feathers=[],plumageRevision=-1;
   function syncFeathers(){
@@ -14,6 +17,7 @@ export function createFeatherView(scene,simulation) {
     feathers=simulation.rig.map(entry=>{
       const holder=new Group(),{vane:surface}=createFeatherGeometry(entry.length,entry.width,entry.hue,entry.style,entry.profile);
       const blade=new Mesh(surface,materials.struts);
+      blade.layers.enable(1);blade.userData.aoNormalMaterial=featherNormals;
       blade.castShadow=true;blade.receiveShadow=true;holder.add(blade);holder.name='Contact-separated plume';group.add(holder);return {entry,holder};
     });plumageRevision=simulation.plumageRevision;
   }
@@ -47,6 +51,6 @@ export function createFeatherView(scene,simulation) {
     scene.remove(group);const geometries=new Set(),mats=new Set();
     // The simulation owns the skin, skeleton and collider-debug resources.
     for(const child of group.children){if(child===creature)continue;child.traverse(o=>{if(o.geometry)geometries.add(o.geometry);if(o.material)mats.add(o.material);});}
-    geometries.forEach(g=>g.dispose());mats.forEach(m=>m.dispose());for(const m of room.mirrors)m.getRenderTarget().dispose();
+    geometries.forEach(g=>g.dispose());mats.forEach(m=>m.dispose());featherNormals.dispose();for(const m of room.mirrors)m.getRenderTarget().dispose();
   }};
 }

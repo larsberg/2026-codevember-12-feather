@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { Box3,Quaternion,Scene,Vector3 } from 'three';
+import { Box3,DoubleSide,Quaternion,Scene,Vector3 } from 'three';
 import signatures from './fixtures/caustic-mesh-signatures.json' with {type:'json'};
 import { defaultSetup,validateSetup } from '../src/settings.js';
 import { initPhysics,FeatherSimulation } from '../src/feather-simulation.js';
@@ -85,7 +85,14 @@ test('complete feathers fall with the body and retain their follicles through la
     view.update();assert.equal(view.diagnostics.growth,1);
     assert.equal(sim.plumageAt,0);assert.equal(sim.landedAt,null);
     const holders=view.group.children.filter(o=>o.name==='Contact-separated plume');
-    for(const holder of holders){assert.ok(holder.visible);assert.deepEqual(holder.scale.toArray(),[1,1,1]);}
+    for(const holder of holders){
+      assert.ok(holder.visible);assert.deepEqual(holder.scale.toArray(),[1,1,1]);
+      const vane=holder.children[0];
+      assert.ok(vane.layers.isEnabled(1),'opaque feathers occlude the mirror in the AO depth pass');
+      assert.equal(vane.material.opacity,1);assert.equal(vane.material.depthWrite,true);
+      assert.equal(vane.userData.aoNormalMaterial.side,DoubleSide,'back-facing vanes also write AO depth');
+      assert.equal(vane.userData.aoNormalMaterial.allowOverride,false);
+    }
     const attachments=sim.rig.map(e=>e.attachment),bodies=sim.rig.map(e=>e.body),revision=sim.plumageRevision;
     const rotations=sim.rig.map(e=>new Quaternion().copy(e.body.getRotation()).normalize());
     for(let frame=0;frame<15;frame++){sim.update(1/60);view.update();for(const holder of holders)assert.deepEqual(holder.scale.toArray(),[1,1,1]);}
@@ -97,6 +104,15 @@ test('complete feathers fall with the body and retain their follicles through la
     assert.ok(sim.landedAt!==null);assert.equal(sim.plumageRevision,revision);
     sim.rig.forEach((e,i)=>{assert.equal(e.attachment,attachments[i]);assert.equal(e.body,bodies[i]);});
   }finally{view.dispose();sim.dispose();}
+});
+
+test('black-stage migration replaces the paper default and preserves custom studio edits',()=>{
+  const saved=defaultSetup();saved.version=7;saved.studio.background='#e9e2d4';saved.studio.exposure=1.25;
+  const next=validateSetup(saved);
+  assert.equal(next.studio.background,'#000000');assert.equal(next.studio.exposure,1.25);
+  assert.equal(saved.studio.background,'#e9e2d4');assert.deepEqual(validateSetup(next),next);
+  saved.studio.background='#15345a';assert.equal(validateSetup(saved).studio.background,'#15345a');
+  saved.version=8;saved.studio.background='#e9e2d4';assert.equal(validateSetup(saved).studio.background,'#e9e2d4');
 });
 
 test('three different bodies stand, lift individual feet quickly, hold, and turn their heads',()=>{

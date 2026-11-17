@@ -136,8 +136,13 @@ anisotropic highlights and satin sheen; the folds cast and receive shadows.
 The inherited spotlight now aims at the dressing floor, with a warm pool of
 light and a wide cone penumbra. Its existing Soft edge and Shadow softness
 controls separately adjust the light falloff and filtered cast-shadow edge.
-The paper floor's pool uses that same spotlight position, direction, cone,
+The black stage floor's pool uses that same spotlight position, direction, cone,
 penumbra, color and intensity, while receiving the actual scene shadow map.
+It has no ambient contribution: the pool fades to pure black outside the cone,
+and disabling the spotlight leaves the floor black. Cast shadows multiply that
+light instead of adding a colored shadow to the unlit floor. The background is black.
+Opaque feather vanes participate in the AO depth and normal pass on both sides,
+preventing the mirror frame's occlusion shading from appearing through them.
 No extra lamp controls or overlays were introduced.
 
 The three planar mirrors, feather contacts, Strudel audio transport, studio,
@@ -159,7 +164,8 @@ old default of 36 seconds becomes six bars. Version 6 upgrades untouched stage
 lighting defaults to the warmer spotlight and softer shadows, retaining custom
 lighting edits. Version 7 changes only the retired default gray skin tint to
 neutral white, allowing the generated colors through while preserving custom
-tints and surface edits. Migration does not rewrite the saved JSON.
+tints and surface edits. Version 8 migrates the former paper background to black,
+preserving custom background colors. Migration does not rewrite the saved JSON.
 
 Development saves use owned GET/PUT requests to `/api/setup`, atomically writing
 `public/settings.json` and verifying a fresh read. They never fall back to browser
@@ -168,7 +174,7 @@ URL-scoped device save behavior. Sketch identity is `12-feather` throughout.
 
 ## Verification
 
-`npm run check` runs the production build and twenty-one tests covering:
+`npm run check` runs the production build and twenty-two tests covering:
 
 - a backward, convergent crest on the original upper surface and isolated
   collision categories;
@@ -179,6 +185,7 @@ URL-scoped device save behavior. Sketch identity is `12-feather` throughout.
 - quick individual foot lifts, planted holds, independent head turns and upright
   stance across three different generated bodies;
 - complete plumage in flight, physical flex, and persistent follicles through impact;
+- opaque vanes in the double-sided AO pass and black-stage settings migration;
 - six reproducible silhouette families with length gradients and different directions;
 - Strudel arrivals at exact boundaries, rests, mute, pause, tempo changes and cadence migration;
 - short-drop save migration while retaining custom arrival heights;
@@ -211,6 +218,11 @@ disposal events confirmed one material and two paint textures released per blob.
 The existing roughness input changed the live finish without reallocating it,
 and its value survived regeneration. Pearl highlights were softened to retain
 their pastel color under the saved spotlight and bloom settings.
+
+The stage revision was checked with AO enabled and all 64 vanes writing
+double-sided normals and depth. An isolated GPU floor readback sampled decreasing
+linear intensities of 204, 154, 13 and 0 through the spotlight falloff; outside
+the cone and with the spotlight disabled, the floor returned exactly RGB 0,0,0.
 
 Publication metadata has no deployment URL yet. Capture a gallery thumbnail
 from the approved scene before publishing; the release check guards those assets.

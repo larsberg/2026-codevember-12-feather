@@ -27,7 +27,7 @@ export const fields = {
   drafting: {
     ink: ['Ink edges', false], guides: ['Projection guides', false], paper: ['Paper grain', false],
   },
-  studio: { background: ['Background', '#e9e2d4'], exposure: ['Exposure', .9, .1, 3, .01], shadowOpacity: ['Ground shadow opacity', .32, 0, 1, .01] },
+  studio: { background: ['Background', '#000000'], exposure: ['Exposure', .9, .1, 3, .01], shadowOpacity: ['Ground shadow opacity', .32, 0, 1, .01] },
   bloom: { enabled: ['Enable bloom', true], strength: ['Bloom strength', .85, 0, 4, .05], radius: ['Bloom radius', .45, 0, 1, .01], threshold: ['Bloom threshold', 1.4, 0, 3, .01] },
   focus: { enabled: ['Tilt blur', false], tilt: ['Sharp band angle °', 0, -85, 85, 1], band: ['Sharp band half-width', .18, .02, .5, .01], strength: ['Blur amount', 1.5, 0, 8, .1], offset: ['Band vertical offset', 0, -.5, .5, .01] },
   audio: audioFields,
@@ -43,7 +43,7 @@ export const fields = {
 export function defaultSetup() {
   const result = Object.fromEntries(Object.entries(fields).map(([group, entries]) => [group,
     Object.fromEntries(Object.entries(entries).map(([key, [, initial]]) => [key, initial]))]));
-  result.version = 7; result.sketch = '12-feather';result.cadence=defaultCadence();
+  result.version = 8; result.sketch = '12-feather';result.cadence=defaultCadence();
   result.audio.voices = defaultVoices();
   result.lighting = defaultLighting(); result.materials = defaultMaterials();
   Object.assign(result.lighting.spotlight, { enabled:true, castShadow:true, color:'#fff1dc', intensity:9000, angle:27, penumbra:.8,
@@ -77,6 +77,9 @@ export function validateSetup(value) {
   }
   if((value.version??0)<7&&value.materials?.panels?.color==='#48565c'){
     value=structuredClone(value);value.materials.panels.color='#ffffff';
+  }
+  if((value.version??0)<8&&value.studio?.background?.toLowerCase()==='#e9e2d4'){
+    value=structuredClone(value);value.studio.background='#000000';
   }
   const result = defaultSetup();
   // Missing Feather fields migrate to defaults; shared studio edits remain intact.

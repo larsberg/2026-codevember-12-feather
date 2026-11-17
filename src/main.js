@@ -16,7 +16,7 @@ import { defaultSetup, validateSetup, DEFAULT_CAMERA } from './settings.js';
 import { requestSetup } from './persistence.js';
 import { libraryPalettes } from './palette-library.js';
 
-import { createPaperFloor, createShadowFollow, updateFloorSpotlight } from './shadows.js';
+import { createStageFloor, createShadowFollow, updateFloorSpotlight } from './shadows.js';
 import { bindLightingControls } from './lighting-controls.js';
 import { bindMaterialControls } from './material-controls.js';
 import { materialGroups } from './material-settings.js';
@@ -73,7 +73,7 @@ scene.add(fill, fill.target);
 const spotlight = new SpotLight(); spotlight.shadow.mapSize.set(2048, 2048);
 spotlight.shadow.camera.near = 1; spotlight.shadow.camera.far = 240; scene.add(spotlight, spotlight.target);
 const effects = createSceneEffects(renderer, scene, camera, { clampBeauty: false });
-const floor = createPaperFloor(settings.studio.background);scene.add(floor); floor.layers.enable(1);
+const floor = createStageFloor();scene.add(floor); floor.layers.enable(1);
 const palette = () => libraryPalettes(settings.paletteLibrary).find(p => p.id === settings.paletteId);
 const generationScore=new GenerationScore(settings.cadence,settings.audio.tempo);
 
@@ -95,7 +95,7 @@ function rebuild({resetScore=true}={}) {
 function configure(restoreCamera = false) {
   if (rigKey !== keyForRig()) rebuild(); else simulation.configure(settings);
   generationScore.configure(settings.cadence,settings.audio.tempo);
-  scene.background.set(settings.studio.background); floor.material.uniforms.paperColor.value.set(settings.studio.background);floor.material.uniforms.opacity.value=settings.studio.shadowOpacity;
+  scene.background.set(settings.studio.background);floor.material.uniforms.opacity.value=settings.studio.shadowOpacity;
   materialControls?.set(settings.materials);
   configureEnvironment();
   surface.configure(settings, palette());
