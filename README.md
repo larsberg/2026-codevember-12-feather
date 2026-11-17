@@ -49,10 +49,14 @@ region, builds its five dynamic Box3D bodies and four spherical joints, and
 uses the original distance-to-box skin weights and GPU skeleton. The original
 polygon-normal shader keeps each n-gon coherent across its internal triangles.
 The simplified ellipsoid generator and kinematic sphere host have been removed.
+Rare box arrangements that produce a folded dual polygon are rejected with a
+bounded, deterministic retry (up to eight seeds). The pipeline stays unchanged;
+successful seeds retain their exact reference meshes. Diagnostics expose the
+requested seed, accepted seed and attempt count so an arrival remains reproducible.
 
 Each creature owns a generated `MeshPhysicalMaterial` from `glamour-material.js`.
 Seven finish families—nacre, ribbon lacquer, petrol pearl, opal marble, gilt
-pinstripe, confetti enamel and holographic satin—cycle independently of the six
+pinstripe, confetti enamel and holographic satin—cycle independently of the ten
 crest families. Seeded hues, stripe widths, flow fields, projection angles and
 thin-film thickness give each creature an individual finish.
 
@@ -90,16 +94,26 @@ the drop. Each attachment stores triangle indices and barycentric weights, so
 roots follow the rendered skin. The complete feathers are visible on the first
 frame; the same attachments and rigid bodies persist through landing and posing.
 
-`plumage-layout.js` provides six coherent surface flow fields (+Z front, −Z rear):
+`plumage-layout.js` provides ten coherent surface flow fields (+Z front, −Z rear):
 a convergent swept crest, a graduated rear fan, a side sweep, a parted double
-crest, an upright arched fan, and a long cascading crest. Seeded spread, handedness,
-arch height, length and vane profiles vary within each family. Short coverts
-blend into longer feathers according to height, front-to-back position or side.
-Each feather is a curved,
-cambered, asymmetric vane with a broad lower section and pointed tip. All color
-variants retain full vanes. Smooth normals, fine shader barbs and a dark central
-rachis replace the detached bright wire strands. Each crest uses a coherent
-palette, with darker distal colors.
+crest, an upright arched fan, a cascading crest, a compact velvet cap, a broad
+royal fan, a ribbon train, and a tall pointed flame crest. Seeded spread,
+handedness, arch height, size and fullness vary within each family. The fan
+directions span the actual crown's follicles, including asymmetric CSG bodies.
+
+Six solid vane outlines—lance, rounded, paddle, sabre, ribbon and scalloped—vary
+the width profile, asymmetry, camber, twist and actual edge silhouette. Each
+creature layers short rounded coverts, medium feathers and large display vanes,
+ordered by height and front-to-back position. Compact caps and large trains
+differ substantially in size. Later cycles also change the dominant vane type
+within an arrangement. The existing length, width and count values remain the
+base controls, with the same number of feather bodies and three colliders each.
+
+Six paint styles add gradients, chevron bars, jewel spots, colored edging,
+speckles and ombré bands. Markings use the feather's own UVs, with a coherent
+seeded palette, darker tips, fine barbs and a central rachis. They share one
+material and shader, with no per-feather textures. All variants retain opaque,
+continuous vanes and the corrected double-sided AO depth pass.
 
 Kinematic follicle frames drive the dynamic feathers with restricted angular
 movement. Three thin convex sections follow each curved vane, allowing shingled
@@ -108,6 +122,10 @@ internal hulls. The body remains fully dynamic. Contact envelopes cover the
 central vane, so fine edge overlaps remain an approximation. The whole crest
 arrives fully formed, with no scale or growth animation. Lightly damped restoring
 torque gives the vanes bounce at impact and follow-through during steps and head turns.
+The longest train stays clear of the mirror at its rest pose. Follicle frames
+retain their orientation through zero-area skin triangles, and a bounded angular
+target speed prevents a sharply folding triangle from snapping its feather.
+Root positions still follow the exact barycentric skin position.
 
 `generation-score.js` uses the actual Strudel core pattern engine. The saved
 `cadence` contains `bars` (phrase length, four beats per bar) and `rhythm` (`x`
@@ -119,8 +137,34 @@ added. The visual pattern works while muted and before audio is unlocked.
 The phase persists across automatic generations, follows tempo changes without
 restarting, and freezes with the sketch or hidden tab. Initial onset zero belongs
 to the first creature, preventing a duplicate arrival. Manual regeneration,
-Reload and Reset restart the phrase. Audio events use the same continuous beat
-position, ready for a future sound direction.
+Reload and Reset restart the phrase. This clock is silent: it never triggers
+periodic synth notes.
+
+`creature-foley.js` turns the actual simulation into natural-history-style foley.
+Body/floor contact starts one cushioned landing, followed by diminishing feather
+settling. A lifted lower hull must physically contact the floor to produce a
+footstep; planted sliding adds short scrapes. Head and body turns produce brief
+feather brushes with a trailing flutter. Vane contacts are coalesced and gated
+by movement, so resting collision chatter does not become a continuous hiss.
+Glass/wood textures require actual furniture contact. Still inspection holds
+remain quiet. Pausing or muting stops the sound; regeneration stops the previous
+creature's samples before the next arrival.
+
+`feather-sounds.js` bakes ten original broadband textures with six seeded variants
+each, then registers them as native Strudel sample voices using the inherited
+Rust sound-effect loader. No pitched carrier, bird call, background loop, sample
+download or audible generation clock is used. Body size and plume dimensions
+affect texture register and brightness; small per-gesture differences avoid
+identical repeated steps. At most six voices overlap, with a reserved impact
+slot and a limit on rustle starts. The sample bank is about 2.1 MB at 44.1 kHz and
+is shared across creature generations.
+
+The existing sound panel owns master volume, mute, tempo and both saved voices:
+body/feet and plumage. Texture and register color the samples; rhythm gates
+successive gestures rather than clock beats. Filters, envelopes, stereo placement,
+reverb, delay and body-height mappings apply to new gestures; master volume and
+voice levels also update sounding samples. The former FM fields control fibre
+contrast and scale. No new controls or overlay were added.
 
 `dressing-room.js` raises the mirror glass three units above the floor. Six
 turned walnut legs, brass collars, curved front/back shoes and lower stretchers
@@ -133,14 +177,21 @@ with tieback cords, three scalloped swags and a sewn heading. These are curved m
 actual folds, normals and tangent frames. A physical cloth material supplies
 anisotropic highlights and satin sheen; the folds cast and receive shadows.
 
-The inherited spotlight now aims at the dressing floor, with a warm pool of
-light and a wide cone penumbra. Its existing Soft edge and Shadow softness
-controls separately adjust the light falloff and filtered cast-shadow edge.
-The black stage floor's pool uses that same spotlight position, direction, cone,
-penumbra, color and intensity, while receiving the actual scene shadow map.
-It has no ambient contribution: the pool fades to pure black outside the cone,
-and disabling the spotlight leaves the floor black. Cast shadows multiply that
-light instead of adding a colored shadow to the unlit floor. The background is black.
+One real shadow-casting spotlight lights the stage: the original 27° cone from
+`(-10,29.5,16)` toward `(0,2,0)`, with intensity 9000. The floor now uses stock
+`MeshStandardMaterial`; curtains use `MeshPhysicalMaterial`. Three's standard
+lighting shaders apply the actual light's distance falloff, cone penumbra,
+surface normals and shadow map to both. There is no painted floor gradient,
+second projection, or compensating cone scale. The existing Soft edge and
+Shadow softness controls separately adjust cone falloff and filtered cast shadows.
+
+The default unshadowed fill and hemisphere lights are disabled. Floor and cloth
+have an explicit environment map with zero intensity: leaving the map unset
+would make Three use `scene.environmentIntensity`, illuminating them even with
+the spotlight off. The generated glamorous finishes retain their environment
+reflections. The floor is black outside the real cone; cloth outside that same
+cone, including the upper swags, is also dark. The narrow beam is not enlarged
+to illuminate the entire drapery. The background is black.
 Opaque feather vanes participate in the AO depth and normal pass on both sides,
 preventing the mirror frame's occlusion shading from appearing through them.
 No extra lamp controls or overlays were introduced.
@@ -165,7 +216,13 @@ lighting defaults to the warmer spotlight and softer shadows, retaining custom
 lighting edits. Version 7 changes only the retired default gray skin tint to
 neutral white, allowing the generated colors through while preserving custom
 tints and surface edits. Version 8 migrates the former paper background to black,
-preserving custom background colors. Migration does not rewrite the saved JSON.
+preserving custom background colors. Version 10 reverts the rejected version-9
+widened spotlight defaults to the original position, angle and intensity. It
+disables untouched shadowless fill defaults while preserving custom lighting,
+bloom and camera edits. Version 11 replaces the placeholder audio with foley and
+updates only untouched voice levels, attacks and the plumage low-pass default.
+Sound enablement, master volume, tempo and custom voice edits are preserved.
+Migration does not rewrite the saved JSON.
 
 Development saves use owned GET/PUT requests to `/api/setup`, atomically writing
 `public/settings.json` and verifying a fresh read. They never fall back to browser
@@ -174,11 +231,12 @@ URL-scoped device save behavior. Sketch identity is `12-feather` throughout.
 
 ## Verification
 
-`npm run check` runs the production build and twenty-two tests covering:
+`npm run check` runs the production build and thirty tests covering:
 
 - a backward, convergent crest on the original upper surface and isolated
   collision categories;
 - exact geometry signatures against all three Caustic reference meshes;
+- deterministic recovery from two known folded-mesh seeds without changing the pipeline;
 - seeded finish variation, distinct resource ownership, single disposal on
   replacement, live material edits without repainting, and gray-tint migration;
 - a full-sized, dynamic five-hull drop and floor landing without any body scaling;
@@ -186,16 +244,21 @@ URL-scoped device save behavior. Sketch identity is `12-feather` throughout.
   stance across three different generated bodies;
 - complete plumage in flight, physical flex, and persistent follicles through impact;
 - opaque vanes in the double-sided AO pass and black-stage settings migration;
-- six reproducible silhouette families with length gradients and different directions;
+- ten reproducible silhouette families, size ranges, three feather layers,
+  six distinct vane outlines and changing types on later cycles;
+- finite render/contact geometry, continuous frames across a folding triangle,
+  and stable drops and quick turns for compact, broad, trailing and tall crests;
 - Strudel arrivals at exact boundaries, rests, mute, pause, tempo changes and cadence migration;
 - short-drop save migration while retaining custom arrival heights;
 - grounded furniture feet, matching raised mirror colliders, finite drapery
-  geometry and tangent frames, plus stage-light migration preserving custom edits;
+  geometry and tangent frames, cloth environment isolation, and stage-light
+  migrations preserving custom edits;
 - barycentric follicles matching the rendered skinned vertices through impact
   and posing, plus live Box3D damping changes;
 - shared material, mirror and palette state across regenerated subjects;
 - version-one save migration and preservation of custom edits;
-- Strudel beat-boundary onsets;
+- actual landing/foot contact timing, quiet inspection holds, bounded seeded
+  foley textures, native Strudel voice limits, mute, disposal and audio migration;
 - complete GET/PUT setup round trips, ownership rejection and invalid-save safety.
 
 The existing VS Code preview at **http://127.0.0.1:1235/** was checked. The lowered
@@ -219,13 +282,36 @@ The existing roughness input changed the live finish without reallocating it,
 and its value survived regeneration. Pearl highlights were softened to retain
 their pastel color under the saved spotlight and bloom settings.
 
-The stage revision was checked with AO enabled and all 64 vanes writing
-double-sided normals and depth. An isolated GPU floor readback sampled decreasing
-linear intensities of 204, 154, 13 and 0 through the spotlight falloff; outside
-the cone and with the spotlight disabled, the floor returned exactly RGB 0,0,0.
+The real spotlight revision was checked in the full scene, including the blob,
+feathers, curtains and furniture as actual shadow casters. The repeatable
+browser check is `scripts/check-stage-lighting.js`: call its exported
+`checkStageLighting(window.__featherSketch, THREE)` using the app's Three module.
+It renders offscreen with the existing renderer, toggles shadows and the light,
+then moves the actual light. It restores all materials and render state and
+does not move the user's camera. At 384×384, 1,973 visible floor pixels and 1,265
+curtain pixels darkened with cast shadows. Both receivers returned exactly
+RGB 0,0,0 with the light off; all 48,813 sampled floor pixels outside the real
+cone were also black. Moving the light changed both illumination and cast
+shadows on both receivers. These checks use the real receiving materials and
+occluders, rather than comparing synthetic pools on an empty plane. The normal
+preview was also inspected with AO and bloom enabled.
+
+A live Strudel arrival at generation 24 recovered from the known folded
+candidate in two attempts without stopping playback or altering the saved
+mesh pipeline.
 
 Publication metadata has no deployment URL yet. Capture a gallery thumbnail
 from the approved scene before publishing; the release check guards those assets.
 
 The plume families and automatic arrivals were checked in the existing port-1235
 tab. Temporary inspection settings were restored; the saved file was untouched.
+
+The movement foley was verified through native Strudel playback in that same tab:
+multiple generations played landing, foot, pivot, brush and flutter samples while
+the legacy synth-note count remained zero. Pause and mute suspended the context
+and cleared the active voices; zero master volume scheduled no new samples. A
+plumage-level edit survived a subject rebuild. The settings API still returned
+the correct sketch ownership and version 11. A ten-second stereo output capture
+is available at `.tmp/audio/feather-foley.wav`; it peaked at −20.4 dBFS at master
+volume .77, with quiet gaps and no clipping. Tests also cover contact timing,
+deterministic sample variation, envelope edges, voice limits and disposal.

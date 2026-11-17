@@ -58,5 +58,7 @@
     "width": 1600,
     "height": 900,
     "alt": "A generative feathered creature before a folding mirror."
-  }
+  },
+  "repository": "https://github.com/larsberg/2026-codevember-12-feather",
+  "url": "https://larsberg.github.io/2026-codevember-12-feather/"
 }

@@ -54,9 +54,9 @@
   },
   "bloom": {
     "enabled": true,
-    "strength": 0.85,
-    "radius": 0.45,
-    "threshold": 1.4
+    "strength": 0.05,
+    "radius": 0,
+    "threshold": 0
   },
   "focus": {
     "enabled": false,
@@ -67,7 +67,7 @@
   },
   "audio": {
     "enabled": true,
-    "volume": 0,
+    "volume": 0.77,
     "tempo": 120,
     "voices": [
       {
@@ -272,14 +272,14 @@
     "fps": false
   },
   "camera": {
-    "yaw": 19.3805666232,
-    "elevation": 7.9772909532,
-    "distance": 18.1875411555,
+    "yaw": -32.1081393923,
+    "elevation": -1.138773255,
+    "distance": 29.7054173235,
     "offsetX": 0,
     "offsetY": 0,
     "offsetZ": 0
   },
-  "version": 8,
+  "version": 10,
   "sketch": "12-feather",
   "cadence": {
     "bars": 6,
@@ -289,12 +289,12 @@
     "spotlight": {
       "enabled": true,
       "color": "#fff1dc",
-      "intensity": 9000,
+      "intensity": 37860,
       "offsetX": -10,
-      "height": 22,
+      "height": 59.9,
       "offsetZ": 16,
-      "angle": 27,
-      "penumbra": 0.8,
+      "angle": 28,
+      "penumbra": 0.79,
       "castShadow": true,
       "softness": 9,
       "shadowBias": -0.00004,
@@ -313,7 +313,7 @@
       "normalBias": 0.002
     },
     "fill": {
-      "enabled": true,
+      "enabled": false,
       "color": "#c0e4ff",
       "intensity": 0.75,
       "offsetX": 12,
@@ -325,7 +325,7 @@
       "normalBias": 0.002
     },
     "hemisphere": {
-      "enabled": true,
+      "enabled": false,
       "skyColor": "#ffffff",
       "groundColor": "#acaaa6",
       "intensity": 0.65,

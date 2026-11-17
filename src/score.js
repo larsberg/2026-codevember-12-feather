@@ -11,7 +11,7 @@ export function createAudio({ load = () => import('@strudel/web'), onError = con
   let api, context, repl, loading, starting, contextResume, settings, modulation;
   let pattern, patternKey, busy = false, disposed = false, running = true;
   let active = false, waitingForInteraction = false, operation = 0, eventCount = 0, failed = false;
-  let currentMove, recentNotes = [];
+  let currentMove, recentNotes = [], recentEffects = [];
   let effects, synthSettings, synthEnds = [], modulatedAt = -Infinity;
   const sceneMix={levels:[1,1],pans:[0,0]};
   function applySceneMix() {
@@ -22,7 +22,7 @@ export function createAudio({ load = () => import('@strudel/web'), onError = con
   const positions = new Float64Array(48); let floor = 0;
   const wanted = () => !disposed && running && settings?.enabled;
   function syncModulation() {
-    const musical = settings.voices.some(voice => voice.enabled);
+    const musical = synthLevel > 0 && settings.voices.some(voice => voice.enabled);
     if (musical && !modulation) modulation = createModulation(api, context);
     if (!musical && modulation) { modulation.dispose(); modulation = undefined; }
     modulation?.update(synthSettings, positions, floor);
@@ -56,6 +56,7 @@ export function createAudio({ load = () => import('@strudel/web'), onError = con
       if (disposed) { repl.stop(); if (context.state !== 'closed') await context.close(); return; }
       await api.initAudio(); if (disposed) { repl.stop(); return; }
       if (loadEffects) effects = await loadEffects(api, context);
+      effects?.configure?.(settings);
       if (disposed) { effects?.dispose(); repl.stop(); return; }
       // Initialize the inherited transport without an independent beat.
       await repl.setPattern(api.silence, false); refresh();
@@ -63,7 +64,7 @@ export function createAudio({ load = () => import('@strudel/web'), onError = con
     return loading;
   }
   function scheduleMove(event) {
-    if (!active || !wanted() || !pattern) return;
+    if (!active || !wanted() || !pattern || synthLevel === 0) return;
     // Strudel rationalizes query bounds; 1e-9 can collapse onto an exact
     // rhythmic boundary and lose that onset. Query wider, then filter below.
     const begin = Math.max(0, event.from), end = Math.min(1, event.to + 1e-6);
@@ -102,7 +103,7 @@ export function createAudio({ load = () => import('@strudel/web'), onError = con
       await repl.start();
       if (token !== operation || !wanted()) { repl.pause(); if (context.state === 'running') await context.suspend(); return; }
       syncModulation();
-      active = true; busy = false; status('Sounds enabled · laser ready');
+      active = true; busy = false; status('Sounds enabled · movement foley ready');
       if (currentMove?.phase === 'moving') scheduleMove({ from: -1e-9, to: 0, serial: currentMove.serial,
         duration: currentMove.duration * (1 - currentMove.progress) });
     } catch (error) { if (token === operation) report(error); } })();
@@ -113,17 +114,19 @@ export function createAudio({ load = () => import('@strudel/web'), onError = con
     get analysis() { if (active) analysis ??= createAnalysis(api, context); return active ? analysis?.read() ?? silence : silence; },
     get unlocked() { return active && context?.state === 'running'; },
     get diagnostics() { return { engine: 'Strudel', enabled: !!settings?.enabled, running: active, busy, waitingForInteraction,
-      events: eventCount, effects: effects?.diagnostics, recentNotes, live: modulation?.diagnostics, context: context?.state ?? 'locked' }; },
+      events: eventCount, effects: effects?.diagnostics, recentNotes, recentEffects, live: modulation?.diagnostics, context: context?.state ?? 'locked' }; },
     get modulation() { return settings?.voices.map(voice => modulateVoice(voice, positions, floor).routes) ?? []; },
     configure(next) {
       const changedEnabled = settings?.enabled !== next.enabled;
       settings = structuredClone(next); synthSettings = { ...settings, volume: settings.volume * synthLevel,voices:settings.voices.map(voice=>({...voice})) };applySceneMix();
+      effects?.configure?.(settings);
       refresh(); if (active) syncModulation();
       if (!settings.enabled) { if (changedEnabled || active || busy) halt(); }
       else if (!running) status('Sounds enabled · paused with sketch');
       else if (changedEnabled) { failed = false; void start(); }
     },
     async unlock() { failed = false; return start(); },
+    clearEffects() { effects?.stop(); },
     setScene(value) {
       sceneMix.levels=value.levels.map(v=>Math.max(0,Math.min(1,v)));
       sceneMix.pans=value.pans.map(v=>Math.max(-.2,Math.min(.2,v)));applySceneMix();
@@ -142,7 +145,10 @@ export function createAudio({ load = () => import('@strudel/web'), onError = con
       if (active) for (const event of events) {
         if (event.effect && effects) {
           const token = operation;
-          void effects.play(event, settings.volume).catch(error => { if (token === operation) report(error); });
+          void effects.play(event, settings.volume, settings.voices, positions, floor).then(played => {
+            if (!played || token !== operation) return;
+            eventCount++; recentEffects.push({ effect:event.effect, time:event.time, generation:event.generation }); recentEffects=recentEffects.slice(-32);
+          }).catch(error => { if (token === operation) report(error); });
         } else scheduleMove(event);
       }
     },

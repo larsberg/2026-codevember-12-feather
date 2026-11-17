@@ -11,18 +11,19 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { applyCameraView, captureCameraView, configureOrbitInputs, createCameraFollow } from './camera.js';
 import { initPhysics, FeatherSimulation } from './feather-simulation.js';
 import { createFeatherView } from './feather-view.js';
+import { STAGE_SPOT_TARGET } from './dressing-room.js';
 import { createControls } from './controls.js';
 import { defaultSetup, validateSetup, DEFAULT_CAMERA } from './settings.js';
 import { requestSetup } from './persistence.js';
 import { libraryPalettes } from './palette-library.js';
 
-import { createStageFloor, createShadowFollow, updateFloorSpotlight } from './shadows.js';
+import { createStageFloor, createShadowFollow } from './shadows.js';
 import { bindLightingControls } from './lighting-controls.js';
 import { bindMaterialControls } from './material-controls.js';
 import { materialGroups } from './material-settings.js';
 import { createSceneEffects } from './scene-effects.js';
 import { createAudio } from './score.js';
-import { featherBeatEvents } from './feather-score.js';
+import { loadFeatherSounds } from './feather-sounds.js';
 import { GenerationScore } from './generation-score.js';
 
 
@@ -77,12 +78,13 @@ const floor = createStageFloor();scene.add(floor); floor.layers.enable(1);
 const palette = () => libraryPalettes(settings.paletteLibrary).find(p => p.id === settings.paletteId);
 const generationScore=new GenerationScore(settings.cadence,settings.audio.tempo);
 
-const audio = createAudio({synthLevel:.25,synthMaxVoices:6,modulationHz:25,
+const audio = createAudio({synthLevel:0,loadEffects:loadFeatherSounds,modulationHz:25,
   onError: message => console.warn(message), onStatus: state => controls?.audioStatus(state) });
 let simulation, surface, controls, materialControls, lightingControls, rigKey, revision = 0, simulationMilliseconds = 0, generation = 0;
 const keyForRig = () => JSON.stringify([settings.feather,settings.mesh,settings.pipeline]);
 function rebuild({resetScore=true}={}) {
   const next = new FeatherSimulation(settings,generation);
+  audio.clearEffects();
   surface?.dispose(); simulation?.dispose();
   simulation = next; surface = createFeatherView(scene, simulation);
   if(resetScore)generationScore.reset();
@@ -95,9 +97,12 @@ function rebuild({resetScore=true}={}) {
 function configure(restoreCamera = false) {
   if (rigKey !== keyForRig()) rebuild(); else simulation.configure(settings);
   generationScore.configure(settings.cadence,settings.audio.tempo);
-  scene.background.set(settings.studio.background);floor.material.uniforms.opacity.value=settings.studio.shadowOpacity;
+  scene.background.set(settings.studio.background);
   materialControls?.set(settings.materials);
   configureEnvironment();
+  // An explicit map makes Three use the material's zero envMapIntensity;
+  // falling back to scene.environment would use scene.environmentIntensity.
+  floor.material.envMap = environment.texture;
   surface.configure(settings, palette());
   audio.update(0, settings.motion.playing && !document.hidden, simulation.position.subarray(0, 48), simulation.floor); audio.configure(settings.audio);
   lightingControls?.set(settings.lighting);
@@ -110,8 +115,7 @@ function configure(restoreCamera = false) {
 function render() {
   surface.update(camera,0,settings.motion.playing && !document.hidden);
   lightingControls?.updatePosition(follow.position);
-  spotlight.target.position.y=2;
-  updateFloorSpotlight(floor,spotlight);
+  spotlight.target.position.copy(STAGE_SPOT_TARGET);
   followShadow(follow.position); effects.render(follow.position);
 }
 function togglePlaying() {
@@ -184,14 +188,17 @@ orbit.addEventListener('end', () => { settings.camera = captureCameraView(camera
 let previous = performance.now(), wasRunning = false;
 function advanceScene(dt){
   const phrase=generationScore.advance(dt);
-  let elapsed=0;
+  let elapsed=0,events=[];
   for(const event of phrase.events){
     simulation.update(event.offset-elapsed);
     generation++;rebuild({resetScore:false});configure();
+    events=[];
     elapsed=event.offset;
   }
   simulation.update(dt-elapsed);
-  return featherBeatEvents(phrase.from*4,phrase.to*4,settings.audio.tempo);
+  events.push(...simulation.foley.drain());
+  for(const event of events){const point=new Vector3(...event.position).project(camera);event.pan=.5+Math.max(-1,Math.min(1,point.x))*.22;}
+  return events;
 }
 renderer.setAnimationLoop(now => {
   const running = settings.motion.playing && !document.hidden, dt = wasRunning ? Math.min((now - previous) / 1000, 1 / 15) : 0;
@@ -220,7 +227,7 @@ window.addEventListener('pagehide', () => {
 window.__featherSketch = {
   getSetup: () => structuredClone(settings),
   getState: () => ({ ...simulation.stats, playing: settings.motion.playing, feather: surface.diagnostics,
-    audioEngine: 'Strudel', audioUnlocked: audio.unlocked, audio: audio.diagnostics, cadence:generationScore.diagnostics, simulationMilliseconds, revision }),
+    audioEngine: 'Strudel', audioUnlocked: audio.unlocked, audio: audio.diagnostics, foley:simulation.foley.diagnostics, cadence:generationScore.diagnostics, simulationMilliseconds, revision }),
   renderer, scene, camera, orbit, effects, lights: { directional: light, hemisphere, spotlight, fill }, get simulation() { return simulation; }, get view() { return surface; },
   get audioAnalysis() { return audio.analysis; }, render, change, rebuild() { rebuild(); configure(true); },
   advance(seconds) { for (let i = 0; i < Math.round(seconds * 60); i++) { advanceScene(1 / 60); surface.update(camera,1/60,true); } render(); },

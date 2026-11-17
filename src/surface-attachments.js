@@ -37,11 +37,25 @@ export function sampleFollicles(geometry,count,seed) {
 
 export function createAttachmentSampler(positions,matrixWorld) {
   const a=new Vector3(),b=new Vector3(),c=new Vector3(),x=new Vector3(),y=new Vector3(),z=new Vector3(),basis=new Matrix4();
+  const frames=new WeakMap();
   return function sample(attachment,target={position:new Vector3(),rotation:new Quaternion(),normal:new Vector3()}) {
     const {ids,barycentric}=attachment;
     a.fromArray(positions,ids[0]*3).applyMatrix4(matrixWorld);b.fromArray(positions,ids[1]*3).applyMatrix4(matrixWorld);c.fromArray(positions,ids[2]*3).applyMatrix4(matrixWorld);
     target.position.copy(a).multiplyScalar(barycentric.x).addScaledVector(b,barycentric.y).addScaledVector(c,barycentric.z);
-    x.copy(b).sub(a).normalize();y.crossVectors(x,c.clone().sub(a)).normalize();z.crossVectors(x,y).normalize();x.crossVectors(y,z).normalize();
+    const previous=frames.get(attachment);
+    x.copy(b).sub(a);
+    if(x.lengthSq()<1e-12)x.copy(previous?.x??new Vector3(1,0,0));else x.normalize();
+    y.crossVectors(x,c.clone().sub(a));
+    if(y.lengthSq()<1e-12)y.copy(previous?.y??new Vector3(0,1,0));else y.normalize();
+    // The blended skin can fold a triangle through zero area during a quick
+    // step. Keep the follicle frame continuous instead of flipping it 180°.
+    // Its position still follows the exact skinned barycentric point.
+    if(previous&&y.dot(previous.y)<0)y.negate();
+    if(previous&&x.dot(previous.x)<0)x.negate();
+    z.crossVectors(x,y);
+    if(z.lengthSq()<1e-12){x.copy(previous?.x??new Vector3(1,0,0));y.copy(previous?.y??new Vector3(0,1,0));z.crossVectors(x,y);}
+    z.normalize();x.crossVectors(y,z).normalize();
+    if(previous){previous.x.copy(x);previous.y.copy(y);}else frames.set(attachment,{x:x.clone(),y:y.clone()});
     target.normal.copy(y);target.rotation.setFromRotationMatrix(basis.makeBasis(x,y,z));
     return target;
   };

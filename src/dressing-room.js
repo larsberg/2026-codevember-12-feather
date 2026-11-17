@@ -6,6 +6,9 @@ import {
 import { Reflector } from 'three/addons/objects/Reflector.js';
 
 export const MIRROR = { centerY: 12, z: -12, halfWidth: 4, halfHeight: 9, footHeight: 2.85 };
+// The original narrow stage spotlight. All receivers use this same real
+// light; cloth outside its cone is unlit rather than assigned a separate pool.
+export const STAGE_SPOT_TARGET = new Vector3(0, 2, 0);
 const up = new Vector3(0, 1, 0);
 
 export function mirrorPanelPose(index, degrees) {
@@ -144,7 +147,9 @@ export function createDressingRoom(materials) {
       for (const panel of panels) { const pose = mirrorPanelPose(panel.userData.index, settings.feather.mirrorAngle); panel.position.copy(pose.position); panel.quaternion.copy(pose.rotation); }
       for (const material of [satin, walnut]) {
         material.envMap = scene.environment;
-        material.envMapIntensity = settings.lighting.environment.enabled ? settings.lighting.environment.intensity * .65 : 0;
+        // Cloth shading comes from the scene lights and their shadow maps.
+        // The studio reflection environment remains available to polished wood.
+        material.envMapIntensity = material===satin?0:settings.lighting.environment.enabled ? settings.lighting.environment.intensity * .65 : 0;
         material.envMapRotation.y = settings.lighting.environment.rotation * Math.PI / 180;
       }
     },

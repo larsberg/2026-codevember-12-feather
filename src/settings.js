@@ -43,12 +43,13 @@ export const fields = {
 export function defaultSetup() {
   const result = Object.fromEntries(Object.entries(fields).map(([group, entries]) => [group,
     Object.fromEntries(Object.entries(entries).map(([key, [, initial]]) => [key, initial]))]));
-  result.version = 8; result.sketch = '12-feather';result.cadence=defaultCadence();
+  result.version = 11; result.sketch = '12-feather';result.cadence=defaultCadence();
   result.audio.voices = defaultVoices();
   result.lighting = defaultLighting(); result.materials = defaultMaterials();
   Object.assign(result.lighting.spotlight, { enabled:true, castShadow:true, color:'#fff1dc', intensity:9000, angle:27, penumbra:.8,
     offsetX:-10, height:22, offsetZ:16, softness:9, shadowBias:-.00004, normalBias:.015 });
   result.lighting.hemisphere.intensity=.65; result.lighting.fill.intensity=.75;
+  result.lighting.hemisphere.enabled=false;result.lighting.fill.enabled=false;
   result.lighting.environment.intensity=.5;
   result.paletteLibrary = defaultPaletteLibrary();
   result.paletteId = libraryPalettes(result.paletteLibrary)[0].id;
@@ -80,6 +81,22 @@ export function validateSetup(value) {
   }
   if((value.version??0)<8&&value.studio?.background?.toLowerCase()==='#e9e2d4'){
     value=structuredClone(value);value.studio.background='#000000';
+  }
+  if((value.version??0)<10){
+    value=structuredClone(value);
+    const rejected={intensity:14000,angle:36,offsetX:-12,height:28,offsetZ:26},next=defaultSetup().lighting.spotlight;
+    if(value.version===9)for(const [key,old]of Object.entries(rejected))if(value.lighting?.spotlight?.[key]===old)value.lighting.spotlight[key]=next[key];
+    const fill=value.lighting?.fill,ambient=value.lighting?.hemisphere;
+    if(fill?.intensity===.75&&fill.color==='#c0e4ff'&&fill.castShadow===false)fill.enabled=false;
+    if(ambient?.intensity===.65&&ambient.skyColor==='#ffffff'&&ambient.groundColor==='#acaaa6'&&ambient.yaw===0&&ambient.tilt===0)ambient.enabled=false;
+  }
+  if((value.version??0)<11){
+    value=structuredClone(value);
+    if(value.audio?.voices?.[0]?.level===.38)value.audio.voices[0].level=.6;
+    if(value.audio?.voices?.[1]?.level===.18)value.audio.voices[1].level=.42;
+    if(value.audio?.voices?.[1]?.lowpass===1200)value.audio.voices[1].lowpass=7000;
+    if(value.audio?.voices?.[0]?.attack===.02)value.audio.voices[0].attack=.003;
+    if(value.audio?.voices?.[1]?.attack===.04)value.audio.voices[1].attack=.006;
   }
   const result = defaultSetup();
   // Missing Feather fields migrate to defaults; shared studio edits remain intact.

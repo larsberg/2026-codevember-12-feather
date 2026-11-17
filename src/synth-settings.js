@@ -3,14 +3,14 @@ export const audioFields = {
   enabled: ['Sound', true], volume: ['Volume', .3, 0, 1, .01], tempo: ['Delay tempo (BPM)', 120, 20, 200, 1],
 };
 export const waveforms = ['triangle', 'sine', 'sawtooth', 'square'];
-export const VOICE_NAMES = ['Laser carrier', 'Tube and debris'];
+export const VOICE_NAMES = ['Body and feet', 'Plumage'];
 export const voiceFields = {
-  level: ['Level', .6, 0, 1, .01], gate: ['Note length / step', .7, .1, 1, .01],
+  level: ['Level', .6, 0, 1, .01], gate: ['Gesture length', .7, .1, 1, .01],
   attack: ['Attack (s)', .006, .001, 1, .001], decay: ['Decay (s)', .15, .01, 2, .01],
   sustain: ['Sustain', .8, 0, 1, .01], release: ['Release (s)', .025, .01, 2, .01],
   lowpass: ['Low-pass cutoff (Hz)', 4800, 20, 16000, 10], resonance: ['Filter resonance', .7, .1, 12, .1],
   highpass: ['High-pass cutoff (Hz)', 20, 10, 2000, 10],
-  fm: ['FM depth', .1, 0, 12, .05], harmonicity: ['FM ratio', 2, .25, 8, .05],
+  fm: ['Fibre contrast', .1, 0, 12, .05], harmonicity: ['Fibre scale', 2, .25, 8, .05],
   drive: ['Drive', .04, 0, 3, .01], pan: ['Pan', .5, 0, 1, .01],
   reverb: ['Reverb send', .12, 0, 1, .01], roomSize: ['Room size', .6, .1, 4, .1],
   delay: ['Delay send', .06, 0, 1, .01], delayTime: ['Delay spacing (beats)', .75, .125, 2, .125],
@@ -19,8 +19,8 @@ export const voiceFields = {
 // Editable output endpoints bound the height mapping, including inverted ranges.
 export const modulationTargets = {
   lowpass: ['Low-pass cutoff', 'Hz', 120, 4800], resonance: ['Filter resonance', '', .4, 6],
-  highpass: ['High-pass cutoff', 'Hz', 15, 180], fm: ['FM depth', '', .1, 5],
-  harmonicity: ['FM ratio', '', .5, 4], drive: ['Drive', '', .02, 1.5],
+  highpass: ['High-pass cutoff', 'Hz', 15, 180], fm: ['Fibre contrast', '', .1, 5],
+  harmonicity: ['Fibre scale', '', .5, 4], drive: ['Drive', '', .02, 1.5],
   delay: ['Delay send', '', .02, .65], reverb: ['Reverb send', '', .03, .8],
   pan: ['Pan', '', .2, .8],
 };
@@ -29,8 +29,8 @@ export function defaultVoices() {
     ...Object.fromEntries(Object.entries(voiceFields).map(([key, [, initial]]) => [key, initial])),
     enabled: true, sound: index ? 'triangle' : 'sine', note: index ? 43 : 77,
     rhythm: 'x',
-    lowpass:index?1200:2600,fm:index?1:.18,attack:index?.04:.02,release:index?.14:.06,reverb:.02,delay:0,
-    level: index ? .18 : .38, pan: index ? .65 : .35, gate: .88,
+    lowpass:index?7000:2600,fm:index?1:.18,attack:index?.006:.003,release:index?.14:.06,reverb:.02,delay:0,
+    level: index ? .42 : .6, pan: index ? .65 : .35, gate: .88,
     modulations: Object.fromEntries(Object.entries(modulationTargets).map(([key, [,, min, max]], i) => [key, {
       enabled: false,
       corner: index ? 15 - i : i, heightMin: 0, heightMax: 4, min, max,

@@ -9,15 +9,20 @@ export function featherCenter(t,length,profile){
   return new Vector3().addScaledVector(profile.p1,3*u*u*t).addScaledVector(profile.p2,3*u*t*t).addScaledVector(profile.p3,t*t*t);
 }
 export function featherWidth(t,width,profile){
-  // Full vanes begin near the follicle, broadest in the lower-middle and
-  // narrowing continuously into a fine terminal point.
-  return width*Math.pow(Math.sin(Math.PI*Math.pow(t,profile?.widthPeak??.72)),profile?.widthPower??.72);
+  // Broad pointed, rounded, paddle and ribbon outlines share the same
+  // continuous surface used by the collider. Scallops alter the actual edge.
+  t=Math.max(0,Math.min(1,t));
+  if(t===0||t===1)return 0;
+  const scallop=1-(profile?.scallop??0)*(.5+.5*Math.cos(t*Math.PI*2*(profile?.scallopCount??6)))*Math.sin(Math.PI*t);
+  return width*Math.pow(Math.max(0,Math.sin(Math.PI*Math.pow(t,profile?.widthPeak??.72))),profile?.widthPower??.72)*scallop;
 }
 export function featherPoint(t,length,width,side=0,profile){
   const center=featherCenter(t,length,profile),tangent=featherCenter(Math.min(1,t+.001),length,profile).sub(featherCenter(Math.max(0,t-.001),length,profile)).normalize();
-  const across=new Vector3(1,0,0).addScaledVector(tangent,-tangent.x).normalize(),normal=new Vector3().crossVectors(across,tangent).normalize();
+  const across=new Vector3(1,0,0).addScaledVector(tangent,-tangent.x).normalize();
+  across.applyAxisAngle(tangent,(profile?.twist??0)*t*t);
+  const normal=new Vector3().crossVectors(across,tangent).normalize();
   const extent=featherWidth(t,width,profile),asym=1+Math.sign(side)*(profile?.asymmetry??.1);
-  return center.addScaledVector(across,side*extent*asym).addScaledVector(normal,-side*side*extent*.17);
+  return center.addScaledVector(across,side*extent*asym).addScaledVector(normal,-side*side*extent*(profile?.camber??.17));
 }
 function featherColor(t,side,hue,style){
   // One coherent palette per crest, with dark tips and subtle transverse bars.
@@ -29,7 +34,9 @@ function featherColor(t,side,hue,style){
   return color;
 }
 export function createFeatherGeometry(length,width,hue,style,profile){
-  const vanePositions=[],vaneColors=[],vaneUvs=[],vaneNormals=[];
+  const vanePositions=[],vaneColors=[],vaneUvs=[],vaneNormals=[],paintData=[],accentData=[];
+  const paint=profile?.paint??{pattern:0,phase:0,strength:1,accentHue:(hue+.18)%1};
+  const accent=new Color().setHSL(paint.accentHue,.8,.54,SRGBColorSpace);
   const segments=80,across=[-1,-.55,0,.55,1];
   // A curved, cambered vane with a continuous silhouette; its fine barb
   // lines sit on the surface rather than floating as a wire fan.
@@ -42,9 +49,11 @@ export function createFeatherGeometry(length,width,hue,style,profile){
       const across=featherPoint(at,length,width,s+.001,profile).sub(featherPoint(at,length,width,s-.001,profile));
       const normal=across.cross(along).normalize();
       vanePositions.push(...p.toArray());vaneColors.push(color.r,color.g,color.b);vaneUvs.push((s+1)/2,t);vaneNormals.push(...normal.toArray());
+      paintData.push(paint.pattern,paint.phase,paint.strength);accentData.push(accent.r,accent.g,accent.b);
     }
   }
   const vane=new BufferGeometry();vane.setAttribute('position',new Float32BufferAttribute(vanePositions,3));vane.setAttribute('color',new Float32BufferAttribute(vaneColors,3));vane.setAttribute('uv',new Float32BufferAttribute(vaneUvs,2));vane.setAttribute('normal',new Float32BufferAttribute(vaneNormals,3));
+  vane.setAttribute('featherPaint',new Float32BufferAttribute(paintData,3));vane.setAttribute('featherAccent',new Float32BufferAttribute(accentData,3));
   return {vane};
 }
 
@@ -64,11 +73,40 @@ export function featherColliders(length,width,profile,mass){
 
 export function bindFeatherBarbs(material){
   material.onBeforeCompile=shader=>{
-    shader.vertexShader='varying vec2 featherUv;\n'+shader.vertexShader;
-    shader.vertexShader=shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nfeatherUv=uv;');
-    shader.fragmentShader='varying vec2 featherUv;\n'+shader.fragmentShader;
+    shader.vertexShader='attribute vec3 featherPaint,featherAccent; varying vec2 featherUv; varying vec3 plumePaint,plumeAccent;\n'+shader.vertexShader;
+    shader.vertexShader=shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nfeatherUv=uv;plumePaint=featherPaint;plumeAccent=featherAccent;');
+    shader.fragmentShader='varying vec2 featherUv; varying vec3 plumePaint,plumeAccent;\n'+shader.fragmentShader;
     shader.fragmentShader=shader.fragmentShader.replace('#include <color_fragment>',`#include <color_fragment>
       float lateral=abs(featherUv.x*2.-1.);
+      float along=featherUv.y;
+      vec3 ink=diffuseColor.rgb*.12;
+      vec3 accent=plumeAccent*diffuse;
+      vec3 painted=diffuseColor.rgb;
+      if(plumePaint.x>.5&&plumePaint.x<1.5){
+        float stripe=.5+.5*sin((along-lateral*.07)*62.+plumePaint.y);
+        painted=mix(painted,ink,smoothstep(.5,.66,stripe)*.8);
+        painted=mix(painted,accent,smoothstep(.9,.98,stripe)*.65);
+      }else if(plumePaint.x<2.5&&plumePaint.x>1.5){
+        float r=length(vec2((featherUv.x-.5)/.39,(along-.73)/.16));
+        float rim=1.-smoothstep(1.02,1.12,r);
+        painted=mix(painted,ink,rim);
+        painted=mix(painted,vec3(.75,.42,.08)*diffuse,(1.-smoothstep(.88,.98,r))*rim);
+        painted=mix(painted,accent,1.-smoothstep(.6,.72,r));
+        painted=mix(painted,ink,1.-smoothstep(.28,.42,r));
+      }else if(plumePaint.x<3.5&&plumePaint.x>2.5){
+        float edging=smoothstep(.76,.9,lateral);
+        painted=mix(painted,accent,edging*.85);
+        painted=mix(painted,ink,smoothstep(.86,.91,along)*.82);
+      }else if(plumePaint.x<4.5&&plumePaint.x>3.5){
+        vec2 cell=vec2(featherUv.x*7.,along*24.);
+        float grain=fract(sin(dot(floor(cell),vec2(127.1,311.7))+plumePaint.y)*43758.5453);
+        float spot=1.-smoothstep(.16,.28,length(fract(cell)-.5));
+        painted=mix(painted,mix(ink,vec3(.8,.68,.43)*diffuse,step(.85,grain)),spot*step(.55,grain)*.9);
+      }else if(plumePaint.x>4.5){
+        painted=mix(painted,accent,smoothstep(.2,.85,along)*.85);
+        painted*=.72+.28*sin(along*16.+plumePaint.y)*sin(along*16.+plumePaint.y);
+      }
+      diffuseColor.rgb=mix(diffuseColor.rgb,painted,plumePaint.z);
       float barb=(featherUv.y-lateral*.055)*92.;
       float aa=max(fwidth(barb),.04);
       float filament=1.-smoothstep(.12-aa,.12+aa,abs(fract(barb)-.5));
@@ -77,5 +115,5 @@ export function bindFeatherBarbs(material){
       diffuseColor.rgb=mix(diffuseColor.rgb,diffuseColor.rgb*.58,rachis);
     `);
   };
-  material.customProgramCacheKey=()=> 'swept-plumage-barbs-v1';
+  material.customProgramCacheKey=()=> 'plumage-patterns-and-barbs-v2';
 }

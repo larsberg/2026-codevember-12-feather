@@ -5,7 +5,7 @@ import {
 import { randomFor } from './feather-geometry.js';
 import { applyMaterialSettings } from './material-settings.js';
 
-// Seven finishes run against six crest families so the combinations keep changing.
+// Seven finishes run against ten crest families so the combinations keep changing.
 export const GLAMOUR_FINISHES = [
   { name: 'nacre', roughness: 1.05, metalness: .55, iridescence: .95, coat: 1, coatRoughness: .24, sheen: .22, normalMix: .4 },
   { name: 'ribbon-lacquer', roughness: .75, metalness: 1.5, iridescence: .45, coat: 1, coatRoughness: .1, sheen: .14, normalMix: .24 },

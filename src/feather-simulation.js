@@ -9,6 +9,7 @@ import { createPlumageLayout } from './plumage-layout.js';
 import { CreatureMotion } from './creature-motion.js';
 import { mirrorColliders } from './dressing-room.js';
 import { createGlamourMaterial } from './glamour-material.js';
+import { CreatureFoley } from './creature-foley.js';
 const identity=new Quaternion();
 export async function initPhysics(){await Promise.all([initBox3D(),initCSG()]);}
 
@@ -17,13 +18,15 @@ export class FeatherSimulation {
     this.settings=settings;this.time=0;this.floor=0;this.generation=generation;this.contacts=0;this.position=new Float64Array(48);this.landedAt=null;
     this.seed=(settings.feather.seed+generation*104729)%1000001;
     const generated=createCreatureMesh(settings,this.seed);
+    this.requestedSeed=this.seed;this.seed=generated.source.seed;this.meshAttempts=generated.attempts;
     Object.assign(this,{geometry:generated.geometry,topology:generated.topology,source:generated.source,layers:generated.layers,provenance:generated.provenance});
     this.physics=createPhysics(settings.physics);this.object=new Group();this.object.name='Caustic five-hull creature';
     this.object.position.y=settings.mesh.dropHeight-this.geometry.boundingBox.min.y;
     this.object.updateMatrixWorld(true);this.rig=[];
     try{
-      this.physics.addBody({body:{type:'static',position:{x:0,y:-1,z:0}},shapes:[{type:'box',halfExtents:{x:80,y:1,z:80}}]});
-      for(const {position,rotation,halfExtents}of mirrorColliders(settings.feather.mirrorAngle))this.physics.addBody({body:{type:'static',position,rotation},shapes:[{type:'box',halfExtents}]});
+      this.floorBody=this.physics.addBody({body:{type:'static',position:{x:0,y:-1,z:0}},shapes:[{type:'box',halfExtents:{x:80,y:1,z:80}}]});
+      this.furnitureBodies=mirrorColliders(settings.feather.mirrorAngle).map(({position,rotation,halfExtents},index)=>({
+        kind:index%5===0?'glass':'wood',entry:this.physics.addBody({body:{type:'static',position,rotation},shapes:[{type:'box',halfExtents}]})}));
       this.skinFinish=createGlamourMaterial(this.seed,generation,settings.mesh.size);
       this.skinMaterial=this.skinFinish.material;
       this.surface=createMeshSurface(this.topology,this.skinMaterial,{skinned:true});this.object.add(this.surface.mesh);
@@ -41,8 +44,9 @@ export class FeatherSimulation {
       // These same follicles and feather bodies stay attached through landing.
       const plumageSurface=this.geometry.clone().applyMatrix4(this.object.matrixWorld);
       try{this.createPlumage(plumageSurface);}finally{plumageSurface.dispose();}
+      this.foley=new CreatureFoley(this);
       this.physics.onBeforeStep(dt=>this.drive(dt));
-      this.physics.onAfterStep(()=>{this.contacts+=this.physics.world.getContactEvents().begin.length;});
+      this.physics.onAfterStep(dt=>{const contacts=this.physics.world.getContactEvents();this.contacts+=contacts.begin.length;this.foley.afterStep(dt,contacts);});
       this.configure(settings);this.sync();
     }catch(error){this.dispose();throw error;}
   }
@@ -59,7 +63,7 @@ export class FeatherSimulation {
       const entry=this.physics.addBody({body:{type:'dynamic',position:new Vector3(0,length/2,0).applyQuaternion(rotation).add(root),rotation,linearDamping:settings.physics.damping,angularDamping:.6},shapes});
       const joint=this.physics.addSphericalJoint(follicle,entry,{localFrameA:{position:new Vector3(),rotation:identity},localFrameB:{position:{x:0,y:-length/2,z:0},rotation:identity},collideConnected:false,
         enableSpring:false,enableConeLimit:true,coneAngle:.18,enableTwistLimit:true,lowerTwistAngle:-.07,upperTwistAngle:.07});
-      this.rig.push({...entry,physicsEntry:entry,...plume,follicle,joint,root,relativeRotation:sample.rotation.clone().invert().multiply(rotation),target:{position:new Vector3(),rotation:new Quaternion(),normal:new Vector3()}});
+      this.rig.push({...entry,physicsEntry:entry,...plume,follicle,joint,root,driveRotation:rotation.clone(),relativeRotation:sample.rotation.clone().invert().multiply(rotation),target:{position:new Vector3(),rotation:new Quaternion(),normal:new Vector3()}});
     }
     this.plumageRevision++;
   }
@@ -71,15 +75,20 @@ export class FeatherSimulation {
   drive(dt){
     // Refresh the actual Box3D bones before sampling their weighted surface.
     this.physics.sync();
-    const grounded=this.lowestHullPoint()<.16;
+    const bottom=this.lowestHullPoint(),grounded=bottom<.16;
     if(grounded&&this.landedAt===null)this.landedAt=this.time;
     this.motion.update(dt,this.landedAt!==null);
+    this.foley.beforeStep(dt,bottom);
     for(const entry of this.rig){
       const sample=this.sampleAttachment(entry.attachment,entry.target),desired=sample.rotation.clone().multiply(entry.relativeRotation);
-      entry.follicle.body.setTargetTransform({position:sample.position,rotation:desired},PHYSICS_STEP,true);
+      // A skin triangle can turn sharply as its supporting hulls step apart.
+      // Bound the follicle's angular speed so the contact solver can follow;
+      // ordinary head turns remain below this limit and retain their timing.
+      entry.driveRotation.rotateTowards(desired,dt*12);
+      entry.follicle.body.setTargetTransform({position:sample.position,rotation:entry.driveRotation},PHYSICS_STEP,true);
       const mass=entry.body.getMass();
       if(this.landedAt!==null)entry.body.applyForceToCenter({x:0,y:mass*this.settings.physics.gravity*.9,z:0},true);
-      const delta=desired.multiply(new Quaternion().copy(entry.body.getRotation()).invert());if(delta.w<0)delta.set(-delta.x,-delta.y,-delta.z,-delta.w);
+      const delta=entry.driveRotation.clone().multiply(new Quaternion().copy(entry.body.getRotation()).invert());if(delta.w<0)delta.set(-delta.x,-delta.y,-delta.z,-delta.w);
       const omega=entry.body.getAngularVelocity(),inertia=mass*entry.length**2/12;
       entry.body.applyTorque({x:inertia*(delta.x*72-omega.x*3.8),y:inertia*(delta.y*72-omega.y*3.8),z:inertia*(delta.z*72-omega.z*3.8)},true);
     }
@@ -93,6 +102,6 @@ export class FeatherSimulation {
   sync(){this.physics.sync();for(let i=0;i<16;i++){const id=Math.floor(i/16*this.positions.length/3);new Vector3().fromArray(this.positions,id*3).applyMatrix4(this.object.matrixWorld).toArray(this.position,i*3);}}
   update(dt){if(!Number.isFinite(dt)||dt<=0)return;this.time+=dt;this.physics.step(dt);this.sync();}
   getCenter(target){return target.set(0,7.5,0);}
-  get stats(){return {physicsEngine:'Box3D',meshSource:this.provenance,meshVertices:this.topology.vertices.length,meshPolygons:this.topology.faces.length,hullBodies:this.meshRig.entries.length,bodyJoints:this.meshRig.joints.length,contactBegins:this.contacts,generation:this.generation,seed:this.seed,time:this.time,landedAt:this.landedAt,plumageAt:this.plumageAt,plumageStyle:this.rig[0]?.plumageStyle,skinFinish:this.skinFinish.diagnostics,lowestHullPoint:this.lowestHullPoint(),bodies:this.physics.entries.length,colliders:this.physics.entries.reduce((sum,e)=>sum+e.shapes.length,0),joints:this.physics.joints.length,feathers:this.rig.length,motion:this.motion.diagnostics};}
+  get stats(){return {physicsEngine:'Box3D',meshSource:this.provenance,meshVertices:this.topology.vertices.length,meshPolygons:this.topology.faces.length,hullBodies:this.meshRig.entries.length,bodyJoints:this.meshRig.joints.length,contactBegins:this.contacts,generation:this.generation,seed:this.seed,requestedSeed:this.requestedSeed,meshAttempts:this.meshAttempts,time:this.time,landedAt:this.landedAt,plumageAt:this.plumageAt,plumageStyle:this.rig[0]?.plumageStyle,skinFinish:this.skinFinish.diagnostics,lowestHullPoint:this.lowestHullPoint(),bodies:this.physics.entries.length,colliders:this.physics.entries.reduce((sum,e)=>sum+e.shapes.length,0),joints:this.physics.joints.length,feathers:this.rig.length,motion:this.motion.diagnostics};}
   dispose(){if(this.disposed)return;this.disposed=true;this.meshRig?.dispose();this.surface?.dispose();this.skinFinish?.dispose();this.physics?.dispose();this.geometry?.dispose();}
 }

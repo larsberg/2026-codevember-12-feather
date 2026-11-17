@@ -1,13 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { Box3,DoubleSide,Quaternion,Scene,Vector3 } from 'three';
+import { Box3,DoubleSide,Quaternion,Scene,Texture,Vector3 } from 'three';
 import signatures from './fixtures/caustic-mesh-signatures.json' with {type:'json'};
 import { defaultSetup,validateSetup } from '../src/settings.js';
 import { initPhysics,FeatherSimulation } from '../src/feather-simulation.js';
 import { createCreatureMesh } from '../src/creature-mesh.js';
 import { createFeatherView } from '../src/feather-view.js';
-import { featherScoreEvents } from '../src/feather-score.js';
 import { libraryPalettes } from '../src/palette-library.js';
 import { createPlumageLayout, PLUMAGE_STYLES } from '../src/plumage-layout.js';
 import { MIRROR, mirrorColliders } from '../src/dressing-room.js';
@@ -24,6 +23,22 @@ test('live CSG generation reproduces all three actual Caustic polygon meshes',()
       assert.equal(generated.source.boxes.length,5);
     }finally{generated.geometry.dispose();}
   }
+});
+
+test('folded generated candidates retry deterministically without changing the Caustic pipeline',()=>{
+  const settings=defaultSetup(),before=structuredClone(settings);
+  for(const [generation,requestedSeed]of [[24,245727],[63,330154]]){
+    const sim=new FeatherSimulation(settings,generation),repeat=createCreatureMesh(settings,requestedSeed);
+    try{
+      assert.equal(sim.requestedSeed,requestedSeed);assert.ok(sim.meshAttempts>1&&sim.meshAttempts<=8);
+      assert.equal(sim.seed,repeat.source.seed);assert.deepEqual(sim.topology,repeat.topology);
+      assert.equal(sim.meshRig.entries.length,5);assert.equal(sim.rig.length,64);
+      for(let i=0;i<90;i++)sim.update(1/60);
+      assert.ok(sim.landedAt!==null);assert.ok(sim.positions.every(Number.isFinite));
+    }finally{sim.dispose();repeat.geometry.dispose();}
+  }
+  assert.deepEqual(settings,before);
+  assert.throws(()=>createCreatureMesh({...settings,pipeline:{...settings.pipeline,insetScale:0}},245727),/Inset scale/,'unrelated configuration errors still propagate');
 });
 
 test('a full-sized five-hull body falls from above, deforms on landing, and never scales',()=>{
@@ -166,10 +181,6 @@ test('version-one saves migrate the retired mesh defaults while preserving studi
   assert.equal(saved.version,1,'migration does not mutate or write the old save');
 });
 
-test('audio arc splits retain the onset when crossing a beat',()=>{
-  const events=featherScoreEvents(.49,.51,120);assert.equal(events.length,2);assert.equal(events[1].serial,1);assert.ok(events[1].from<0);assert.ok(events[1].to>0);assert.deepEqual(featherScoreEvents(1,1,120),[]);
-});
-
 test('the swept crest converges on the upper surface before the drop',()=>{
   const sim=new FeatherSimulation(defaultSetup());
   try{
@@ -195,13 +206,14 @@ test('plumage families change silhouette and graduate lengths deterministically'
     for(let generation=0;generation<PLUMAGE_STYLES.length;generation++){
       const make=()=>createPlumageLayout(follicles,sim.sampleAttachment,sim.plumageBounds,settings,sim.seed,generation);
       const layout=make(),tips=layout.map(e=>e.profile.p3.clone().applyQuaternion(e.rotation).add(e.sample.position));
-      const signature=entries=>entries.map(e=>[e.length,e.width,...e.profile.p3.toArray(),e.hue]);
+      const signature=entries=>entries.map(e=>[e.length,e.width,...e.profile.p3.toArray(),e.hue,e.role,e.featherType,e.profile.paint]);
       assert.deepEqual(signature(layout),signature(make()),'the seed reproduces the same crest');
       assert.equal(layout[0].plumageStyle,PLUMAGE_STYLES[generation]);
-      assert.ok(layout.every(e=>e.width>.4&&e.length>1&&e.length<18),'retain broad vanes at usable lengths');
+      assert.ok(layout.every(e=>e.width>.25&&e.length>.7&&e.length<18),'ribbons retain a full vane and compact coverts remain usable');
+      assert.deepEqual(new Set(layout.map(e=>e.role)),new Set(['covert','secondary','display']));
       const lengths=layout.map(e=>e.length);
       assert.ok(Math.max(...lengths)/Math.min(...lengths)>1.3,'short coverts blend into longer feathers');
-      summaries.push({x:Math.max(...tips.map(p=>p.x))-Math.min(...tips.map(p=>p.x)),y:Math.max(...tips.map(p=>p.y)),z:Math.min(...tips.map(p=>p.z)),meanX:tips.reduce((sum,p)=>sum+p.x,0)/tips.length});
+      summaries.push({x:Math.max(...tips.map(p=>p.x))-Math.min(...tips.map(p=>p.x)),y:Math.max(...tips.map(p=>p.y)),z:Math.min(...tips.map(p=>p.z)),meanX:tips.reduce((sum,p)=>sum+p.x,0)/tips.length,meanLength:lengths.reduce((a,b)=>a+b,0)/lengths.length});
       signatures.push(JSON.stringify(signature(layout)));
     }
     assert.equal(new Set(signatures).size,PLUMAGE_STYLES.length);
@@ -210,11 +222,39 @@ test('plumage families change silhouette and graduate lengths deterministically'
     assert.ok(summaries[3].x>summaries[0].x*2,'the split crest has separate trailing tips');
     assert.ok(summaries[4].y>summaries[0].y+1.5,'the arched fan stands taller');
     assert.ok(summaries[5].z<summaries[0].z,'the cascade trails farther back');
+    assert.ok(summaries[6].meanLength<summaries[0].meanLength*.65,'compact caps have genuinely shorter feathers');
+    assert.ok(summaries[7].x>summaries[0].x*3,'the royal fan spreads across the crown');
+    assert.ok(summaries[8].meanLength>summaries[6].meanLength*2,'the ribbon train has a distinct size');
+    const variant=createPlumageLayout(follicles,sim.sampleAttachment,sim.plumageBounds,settings,sim.seed,10);
+    assert.equal(variant[0].plumageStyle,'swept');
+    assert.ok(variant.some(e=>e.featherType==='sabre'),'later cycles change feather types within the same arrangement');
   }finally{sim.dispose();}
 });
 
+test('compact, broad, trailing and tall plumage stays attached through landing and quick turns',()=>{
+  for(const generation of [6,7,8,9]){
+    const sim=new FeatherSimulation(defaultSetup(),generation);
+    try{
+      for(let frame=0;frame<300;frame++){
+        sim.update(1/60);
+        for(const entry of sim.rig){
+          const position=new Vector3().copy(entry.body.getPosition());
+          assert.ok(position.toArray().every(Number.isFinite)&&position.length()<40);
+          const anchor=new Vector3().copy(entry.body.getWorldPoint({x:0,y:-entry.length/2,z:0}));
+          assert.ok(anchor.distanceTo(sim.sampleAttachment(entry.attachment).position)<1.2,'the contact solver keeps up with the moving follicle');
+          assert.ok(new Quaternion().copy(entry.body.getRotation()).angleTo(entry.driveRotation)<1.5,'no sudden half-turn of the vane');
+        }
+      }
+      assert.ok(sim.landedAt<.8);assert.ok(sim.motion.steps>=6);
+      assert.equal(sim.rig.length,64);assert.ok(sim.rig.every(e=>e.shapes.length===3));
+    }finally{sim.dispose();}
+  }
+});
+
 test('raised mirror supports meet the floor and the physical panels leave space beneath the glass',()=>{
-  const settings=defaultSetup(),sim=new FeatherSimulation(settings),view=createFeatherView(new Scene(),sim);
+  const settings=defaultSetup(),sim=new FeatherSimulation(settings),scene=new Scene();
+  scene.environment=new Texture();
+  const view=createFeatherView(scene,sim);
   try{
     view.configure(settings);view.group.updateMatrixWorld(true);
     assert.equal(view.room.feet.length,6);
@@ -229,10 +269,12 @@ test('raised mirror supports meet the floor and the physical panels leave space 
     for(const cloth of view.room.curtains){
       assert.ok(cloth.material.isMeshPhysicalMaterial);assert.ok(cloth.material.sheen>0&&cloth.material.anisotropy>0);
       assert.ok(cloth.castShadow&&cloth.receiveShadow);
+      assert.equal(cloth.material.envMap,scene.environment,'explicit map avoids Three falling back to scene environment intensity');
+      assert.equal(cloth.material.envMapIntensity,0,'shadowless environment does not illuminate the cloth');
       const bounds=new Box3().setFromObject(cloth);assert.ok(bounds.min.y>=0&&bounds.max.y<28);
       assert.ok([...cloth.geometry.attributes.position.array,...cloth.geometry.attributes.tangent.array].every(Number.isFinite));
     }
-  }finally{view.dispose();sim.dispose();}
+  }finally{view.dispose();sim.dispose();scene.environment.dispose();}
 });
 
 test('stage spotlight migration updates untouched defaults and preserves lighting edits',()=>{
@@ -245,6 +287,32 @@ test('stage spotlight migration updates untouched defaults and preserves lightin
   assert.equal(old.lighting.spotlight.softness,1.2,'the saved input remains untouched');
   old.lighting.spotlight.softness=5;old.lighting.spotlight.intensity=12300;old.lighting.spotlight.color='#aabbcc';old.camera.yaw=48;
   const custom=validateSetup(old);assert.equal(custom.lighting.spotlight.softness,5);assert.equal(custom.lighting.spotlight.intensity,12300);assert.equal(custom.lighting.spotlight.color,'#aabbcc');assert.equal(custom.camera.yaw,48);
+});
+
+test('real spotlight migration restores the original beam and preserves custom lighting',()=>{
+  const saved=defaultSetup();saved.version=8;
+  Object.assign(saved.lighting.spotlight,{intensity:9000,angle:27,offsetX:-10,height:22,offsetZ:16});
+  const next=validateSetup(saved);
+  assert.deepEqual(next.lighting.spotlight,defaultSetup().lighting.spotlight);
+  assert.equal(saved.lighting.spotlight.angle,27);assert.deepEqual(validateSetup(next),next);
+  Object.assign(saved.lighting.spotlight,{angle:48,intensity:11200,offsetX:-18,height:40,offsetZ:32,softness:5,penumbra:.6});
+  assert.deepEqual(validateSetup(saved).lighting.spotlight,saved.lighting.spotlight);
+  saved.version=9;
+  Object.assign(saved.lighting.spotlight,{intensity:14000,angle:36,offsetX:-12,height:28,offsetZ:26});
+  saved.lighting.fill.enabled=true;saved.lighting.hemisphere.enabled=true;
+  saved.bloom={enabled:true,strength:.05,radius:0,threshold:0};saved.camera.yaw=68;
+  const restored=validateSetup(saved);
+  for(const key of ['intensity','angle','offsetX','height','offsetZ'])assert.equal(restored.lighting.spotlight[key],defaultSetup().lighting.spotlight[key]);
+  assert.equal(restored.lighting.spotlight.softness,5);assert.equal(restored.lighting.spotlight.penumbra,.6);
+  assert.equal(restored.lighting.fill.enabled,false);assert.equal(restored.lighting.hemisphere.enabled,false);
+  assert.deepEqual(restored.bloom,saved.bloom);assert.equal(restored.camera.yaw,68);
+  assert.equal(saved.lighting.spotlight.angle,36,'migration never mutates the saved input');
+  saved.lighting.fill.intensity=1.7;saved.lighting.hemisphere.skyColor='#ffaaaa';
+  assert.equal(validateSetup(saved).lighting.fill.enabled,true);assert.equal(validateSetup(saved).lighting.hemisphere.enabled,true);
+  restored.lighting.fill.enabled=true;restored.lighting.hemisphere.enabled=true;
+  assert.deepEqual(validateSetup(restored),restored,'new lighting edits survive subsequent validation');
+  saved.version=8;
+  assert.deepEqual(validateSetup(saved).lighting.spotlight,saved.lighting.spotlight,'pre-v9 custom settings are not mistaken for the rejected defaults');
 });
 
 test('replacing a blob releases its owned finish once without touching the next blob',()=>{
